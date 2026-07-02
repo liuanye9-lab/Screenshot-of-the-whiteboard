@@ -809,26 +809,10 @@ class AnnotationCanvas: NSView {
         editingExistingID = nil
         editingTextAnchor = imagePoint
         let viewRect = imageRectToView(CGRect(x: imagePoint.x, y: imagePoint.y - 14, width: 200, height: 28))
-        let field = CommitOnEnterTextField(frame: viewRect)
-        field.font = NSFont.systemFont(ofSize: 16 * zoomScale, weight: .semibold)
-        field.textColor = currentColor
-        field.backgroundColor = NSColor.black.withAlphaComponent(0.2)
-        field.isBordered = true
-        field.isEditable = true
-        field.isSelectable = true
-        field.placeholderString = "输入文字..."
-        field.focusRingType = .none
-        field.delegate = self
-        field.layer?.cornerRadius = 4
-        field.layer?.borderWidth = 1 / zoomScale
-        field.layer?.borderColor = NSColor.white.cgColor
+        let field = createTextField(frame: viewRect, text: nil, color: currentColor, fontSize: 16)
         addSubview(field)
         editingTextField = field
-        let becameFirstResponder = window?.makeFirstResponder(field) ?? false
-        if !becameFirstResponder {
-            _ = field.becomeFirstResponder()
-        }
-        field.selectText(nil)
+        activateTextField(field)
         field.onCommit = { [weak self] text in
             self?.commitTextEditing(text: text, existingID: nil)
         }
@@ -844,32 +828,49 @@ class AnnotationCanvas: NSView {
         editingTextAnchor = element.frame.origin
         syncToolbarColor(for: element)
         let viewRect = imageRectToView(element.frame)
-        let field = CommitOnEnterTextField(frame: viewRect)
-        field.font = NSFont.systemFont(ofSize: element.fontSize * zoomScale, weight: .semibold)
-        field.textColor = element.color
-        field.backgroundColor = NSColor.black.withAlphaComponent(0.2)
-        field.isBordered = true
-        field.isEditable = true
-        field.isSelectable = true
-        field.stringValue = element.text
-        field.placeholderString = "输入文字..."
-        field.focusRingType = .none
-        field.delegate = self
-        field.layer?.cornerRadius = 4
-        field.layer?.borderWidth = 1 / zoomScale
-        field.layer?.borderColor = NSColor.white.cgColor
+        let field = createTextField(frame: viewRect, text: element.text, color: element.color, fontSize: element.fontSize)
         addSubview(field)
         editingTextField = field
-        let becameFirstResponder = window?.makeFirstResponder(field) ?? false
-        if !becameFirstResponder {
-            _ = field.becomeFirstResponder()
-        }
-        field.selectText(nil)
+        activateTextField(field)
         field.onCommit = { [weak self] text in
             self?.commitTextEditing(text: text, existingID: element.id)
         }
         field.onCancel = { [weak self] in
             self?.cancelTextEditing()
+        }
+    }
+
+    private func createTextField(frame: NSRect, text: String?, color: NSColor, fontSize: CGFloat) -> CommitOnEnterTextField {
+        let field = CommitOnEnterTextField(frame: frame)
+        field.font = NSFont.systemFont(ofSize: fontSize * zoomScale, weight: .semibold)
+        field.textColor = color
+        field.isEditable = true
+        field.isSelectable = true
+        field.isEnabled = true
+        field.isBezeled = false
+        field.isBordered = false
+        field.drawsBackground = true
+        field.backgroundColor = NSColor.black.withAlphaComponent(0.2)
+        if let text = text { field.stringValue = text }
+        field.placeholderString = "输入文字..."
+        field.focusRingType = .none
+        field.delegate = self
+        field.wantsLayer = true
+        field.layer?.cornerRadius = 4
+        field.layer?.borderWidth = 1 / zoomScale
+        field.layer?.borderColor = NSColor.white.cgColor
+        return field
+    }
+
+    private func activateTextField(_ field: CommitOnEnterTextField) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self, self.editingTextField == field else { return }
+            self.window?.makeKeyAndOrderFront(nil)
+            let becameFirstResponder = self.window?.makeFirstResponder(field) ?? false
+            if !becameFirstResponder {
+                _ = field.becomeFirstResponder()
+            }
+            field.selectText(nil)
         }
     }
 
@@ -1022,5 +1023,17 @@ extension AnnotationCanvas: NSTextFieldDelegate {
     func controlTextDidEndEditing(_ obj: Notification) {
         guard let field = obj.object as? NSTextField, field == editingTextField else { return }
         commitTextEditing(text: field.stringValue, existingID: editingExistingID)
+    }
+
+    func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
+        if commandSelector == #selector(NSResponder.insertNewline(_:)) {
+            commitTextEditingIfAny()
+            return true
+        }
+        if commandSelector == #selector(NSResponder.cancelOperation(_:)) {
+            cancelTextEditing()
+            return true
+        }
+        return false
     }
 }
