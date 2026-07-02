@@ -274,6 +274,59 @@
       font-size: 0.98rem;
     }
 
+    /* Shortcuts */
+    .shortcuts-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+      max-width: 720px;
+      margin: 0 auto;
+    }
+
+    .shortcut-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 22px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      box-shadow: var(--shadow-sm);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .shortcut-row:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow);
+    }
+
+    .shortcut-label {
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .shortcut-keys {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .key {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 30px;
+      height: 30px;
+      padding: 0 8px;
+      background: #fff;
+      border: 1px solid rgba(203, 213, 225, 0.8);
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--text);
+      box-shadow: 0 2px 0 rgba(203, 213, 225, 0.6);
+    }
+
     /* Screenshots */
     .screenshots {
       display: grid;
@@ -392,6 +445,7 @@
         </a>
         <div class="nav-links">
           <a href="#features">功能</a>
+          <a href="#shortcuts">快捷键</a>
           <a href="#screenshots">截图</a>
           <a href="#download">下载</a>
         </div>
@@ -465,6 +519,25 @@
           <h3>AI 友好导出</h3>
           <p>标注结果一键复制图片 + JSON 元数据，或保存 PNG + JSON 文件，让 AI 准确理解修改意图。</p>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="shortcuts">
+    <div class="container">
+      <div class="section-title">
+        <h2>默认快捷键</h2>
+        <p>无需记忆复杂组合，一手掌控截图工作流。</p>
+      </div>
+      <div class="shortcuts-grid">
+        <div class="shortcut-row"><span class="shortcut-label">全局 / 全屏截图</span><span class="shortcut-keys"><span class="key">⌘</span><span class="key">Q</span></span></div>
+        <div class="shortcut-row"><span class="shortcut-label">局部截图</span><span class="shortcut-keys"><span class="key">⌘</span><span class="key">W</span></span></div>
+        <div class="shortcut-row"><span class="shortcut-label">整页截图</span><span class="shortcut-keys"><span class="key">⌘</span><span class="key">R</span></span></div>
+        <div class="shortcut-row"><span class="shortcut-label">窗口截图</span><span class="shortcut-keys"><span class="key">⌘</span><span class="key">E</span></span></div>
+        <div class="shortcut-row"><span class="shortcut-label">截长图（滚轮选取）</span><span class="shortcut-keys"><span class="key">⌘</span><span class="key">T</span></span></div>
+        <div class="shortcut-row"><span class="shortcut-label">标注上次截图</span><span class="shortcut-keys"><span class="key">⌘</span><span class="key">A</span></span></div>
+        <div class="shortcut-row"><span class="shortcut-label">退出应用</span><span class="shortcut-keys"><span class="key">⌘</span><span class="key">⇧</span><span class="key">Q</span></span></div>
+        <div class="shortcut-row"><span class="shortcut-label">复制图片 + JSON</span><span class="shortcut-keys"><span class="key">⌘</span><span class="key">⇧</span><span class="key">C</span></span></div>
       </div>
     </div>
   </section>
