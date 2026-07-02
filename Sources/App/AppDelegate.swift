@@ -215,14 +215,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         guard PermissionManager.checkScreenRecording() else { showPermissionsGuide(); return }
         guard PermissionManager.checkAccessibility() else { showPermissionsGuide(); return }
 
-        let alert = NSAlert()
-        alert.messageText = "长图截图"
-        alert.informativeText = "点击「开始」后将自动截取前台窗口的可视内容并逐屏滚动拼接。\n\n按 ESC 可随时取消。"
-        alert.addButton(withTitle: "开始截取")
-        alert.addButton(withTitle: "取消")
-
-        if alert.runModal() == .alertFirstButtonReturn {
-            CaptureService.captureScrolling { [weak self] image in
+        CaptureService.captureScrolling { [weak self] image in
+            DispatchQueue.main.async {
                 guard let self = self, let image = image else { return }
                 self.handleNewCapture(image)
             }

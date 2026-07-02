@@ -76,9 +76,10 @@ class CaptureService {
         throw CaptureError.noWindowFound
     }
 
-    /// 滚动长图截图：捕获前台窗口可视区域，进入手动滚动覆层由用户选取长图范围
+    /// 滚动长图截图：获取前台窗口区域，进入手动滚动覆层由用户逐段截取拼接
     static func captureScrolling(onComplete: @escaping (NSImage?) -> Void) {
         Task { @MainActor in
+            // 获取前台窗口的位置和大小
             guard let frontApp = NSWorkspace.shared.frontmostApplication else {
                 onComplete(nil); return
             }
@@ -89,7 +90,14 @@ class CaptureService {
             guard AXUIElementCopyAttributeValue(app, kAXWindowsAttribute as CFString, &windowRef) == .success,
                   let windows = windowRef as? [AXUIElement],
                   let mainWindow = windows.first else {
-                onComplete(nil); return
+                // 无法获取窗口信息，退回使用主屏幕可视区域
+                let screenFrame = NSScreen.main?.visibleFrame ?? .zero
+                currentScrollingOverlay?.orderOut(nil)
+                currentScrollingOverlay = ScrollingOverlayWindow(windowRect: screenFrame) { image in
+                    currentScrollingOverlay = nil
+                    onComplete(image)
+                }
+                return
             }
 
             var posVal: CFTypeRef?
@@ -104,9 +112,6 @@ class CaptureService {
             AXValueGetValue(siz as! AXValue, .cgSize, &sizeCGSize)
             let windowRect = CGRect(origin: posPoint, size: sizeCGSize)
 
-            guard CGDisplayCreateImage(CGMainDisplayID()) != nil else {
-                onComplete(nil); return
-            }
             currentScrollingOverlay?.orderOut(nil)
             currentScrollingOverlay = ScrollingOverlayWindow(windowRect: windowRect) { image in
                 currentScrollingOverlay = nil
