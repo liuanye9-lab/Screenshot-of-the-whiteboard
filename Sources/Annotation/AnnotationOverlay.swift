@@ -24,7 +24,8 @@ class AnnotationOverlayWindow: NSWindow {
             self?.handleToolAction(tool)
         }
         floatingToolbar.onColorSelect = { [weak self] color in
-            self?.annotationView.currentColor = color
+            guard let self = self else { return }
+            self.annotationView.applyColorChange(color)
         }
         floatingToolbar.onStrokeWidthChange = { [weak self] width in
             self?.annotationView.currentStrokeWidth = width
@@ -113,9 +114,17 @@ class AnnotationOverlayWindow: NSWindow {
         let mods = event.modifierFlags
         switch UInt32(event.keyCode) {
         case UInt32(kVK_Escape):
-            close()
+            if annotationView.isEditingText {
+                annotationView.cancelTextEditingIfAny()
+            } else {
+                orderOut(nil)
+            }
         case UInt32(kVK_Return), UInt32(kVK_ANSI_KeypadEnter):
-            completeAnnotation()
+            if annotationView.isEditingText {
+                annotationView.commitTextEditingIfAny()
+            } else {
+                completeAnnotation()
+            }
         case UInt32(kVK_ANSI_C):
             if mods.contains(.command) && mods.contains(.shift) {
                 copyWithMetadata()
@@ -172,6 +181,25 @@ class AnnotationCanvas: NSView {
     var currentColor: NSColor = LeafStyle.systemRed
     var currentStrokeWidth: CGFloat = LeafStyle.strokeWidth
     weak var toolbar: AnnotationToolbar?
+
+    func applyColorChange(_ color: NSColor) {
+        currentColor = color
+        editingTextField?.textColor = color
+
+        if let id = selectedID, let idx = elements.firstIndex(where: { $0.id == id }), elements[idx].kind == .text {
+            saveState()
+            elements[idx].color = color
+            needsDisplay = true
+        }
+    }
+
+    func syncToolbarColor(for element: AnnotationElement?) {
+        guard let color = element?.color else { return }
+        currentColor = color
+        toolbar?.setColor(color)
+    }
+
+    var isEditingText: Bool { editingTextField != nil }
 
     private var zoomScale: CGFloat = 1.0
     private var panOffset: CGPoint = .zero
@@ -477,6 +505,9 @@ class AnnotationCanvas: NSView {
             if let id = elementAt(imagePoint) {
                 selectedID = id
                 selectedElementAtStart = element(id: id)
+                if let el = selectedElementAtStart, el.kind == .text {
+                    syncToolbarColor(for: el)
+                }
                 saveState()
                 dragMode = .move
                 dragStart = point
@@ -777,12 +808,15 @@ class AnnotationCanvas: NSView {
         let field = CommitOnEnterTextField(frame: viewRect)
         field.font = NSFont.systemFont(ofSize: 16 * zoomScale, weight: .semibold)
         field.textColor = currentColor
-        field.backgroundColor = .clear
-        field.isBordered = false
+        field.backgroundColor = NSColor.black.withAlphaComponent(0.2)
+        field.isBordered = true
         field.isEditable = true
         field.placeholderString = "输入文字..."
         field.focusRingType = .none
         field.delegate = self
+        field.layer?.cornerRadius = 4
+        field.layer?.borderWidth = 1 / zoomScale
+        field.layer?.borderColor = NSColor.white.cgColor
         addSubview(field)
         window?.makeFirstResponder(field)
         editingTextField = field
@@ -799,17 +833,21 @@ class AnnotationCanvas: NSView {
         cancelTextEditing()
         editingExistingID = element.id
         editingTextAnchor = element.frame.origin
+        syncToolbarColor(for: element)
         let viewRect = imageRectToView(element.frame)
         let field = CommitOnEnterTextField(frame: viewRect)
         field.font = NSFont.systemFont(ofSize: element.fontSize * zoomScale, weight: .semibold)
         field.textColor = element.color
-        field.backgroundColor = .clear
-        field.isBordered = false
+        field.backgroundColor = NSColor.black.withAlphaComponent(0.2)
+        field.isBordered = true
         field.isEditable = true
         field.stringValue = element.text
         field.placeholderString = "输入文字..."
         field.focusRingType = .none
         field.delegate = self
+        field.layer?.cornerRadius = 4
+        field.layer?.borderWidth = 1 / zoomScale
+        field.layer?.borderColor = NSColor.white.cgColor
         addSubview(field)
         window?.makeFirstResponder(field)
         editingTextField = field
@@ -844,6 +882,15 @@ class AnnotationCanvas: NSView {
             addElement(AnnotationElement(id: UUID(), kind: .text, frame: frame, color: currentColor, text: text, fontSize: 16))
         }
         cancelTextEditing()
+    }
+
+    func cancelTextEditingIfAny() {
+        cancelTextEditing()
+    }
+
+    func commitTextEditingIfAny() {
+        guard let field = editingTextField else { return }
+        commitTextEditing(text: field.stringValue, existingID: editingExistingID)
     }
 
     private func cancelTextEditing() {
