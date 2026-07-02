@@ -41,8 +41,15 @@ class CaptureOverlayWindow: NSWindow {
         }
         self.contentView = overlayView
         self.makeKeyAndOrderFront(nil)
+        self.makeFirstResponder(overlayView)
         NSApp.activate(ignoringOtherApps: true)
     }
+
+    override func keyDown(with event: NSEvent) {
+        overlayView.keyDown(with: event)
+    }
+
+    override var acceptsFirstResponder: Bool { true }
 }
 
 class CaptureOverlayView: NSView {
