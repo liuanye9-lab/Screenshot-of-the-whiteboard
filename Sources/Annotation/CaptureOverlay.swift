@@ -50,6 +50,8 @@ class CaptureOverlayWindow: NSWindow {
     }
 
     override var acceptsFirstResponder: Bool { true }
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { true }
 }
 
 class CaptureOverlayView: NSView {

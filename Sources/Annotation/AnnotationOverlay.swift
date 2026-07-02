@@ -47,6 +47,10 @@ class AnnotationOverlayWindow: NSWindow {
         NSApp.activate(ignoringOtherApps: true)
     }
 
+    // 无边框窗口默认无法成为 key window，必须重写才能接收键盘输入
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { true }
+
     private func layoutToolbar() {
         let toolbarW = floatingToolbar.contentWidth
         let x = (frame.width - toolbarW) / 2
@@ -111,7 +115,8 @@ class AnnotationOverlayWindow: NSWindow {
     }
 
     override func keyDown(with event: NSEvent) {
-        if firstResponder is NSText || firstResponder is NSTextField || firstResponder is CommitOnEnterTextView || firstResponder is NSTextView {
+        // 文本编辑中，所有键盘事件直接交给 responder chain
+        if firstResponder is NSText || firstResponder is NSTextView {
             super.keyDown(with: event)
             return
         }
@@ -883,14 +888,9 @@ class AnnotationCanvas: NSView {
     }
 
     private func activateTextView(_ textView: CommitOnEnterTextView) {
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self, self.editingTextView == textView else { return }
-            self.window?.makeKeyAndOrderFront(nil)
-            let becameFirstResponder = self.window?.makeFirstResponder(textView) ?? false
-            if !becameFirstResponder {
-                _ = textView.becomeFirstResponder()
-            }
-        }
+        // 窗口已经是 key window（canBecomeKey = true），直接同步设 first responder
+        self.window?.makeFirstResponder(textView)
+        textView.selectedRange = NSRange(location: textView.string.count, length: 0)
     }
 
     private func commitTextEditing(text: String, existingID: UUID?) {

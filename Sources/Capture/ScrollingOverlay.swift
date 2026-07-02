@@ -43,6 +43,9 @@ class ScrollingOverlayWindow: NSWindow {
         self.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
+
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { true }
 }
 
 class ScrollingControlView: NSView {
