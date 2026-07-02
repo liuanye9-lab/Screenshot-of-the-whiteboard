@@ -51,9 +51,6 @@ class HotkeyManager {
         hotkeys[KeyCombo(keyCode: Int(settings.annotateKey), modifiers: CGEventFlags(rawValue: settings.annotateCGModifiers))] = { [weak self] in self?.onAnnotateLastCapture?() }
         hotkeys[KeyCombo(keyCode: Int(settings.quitKey), modifiers: CGEventFlags(rawValue: settings.quitCGModifiers))] = { [weak self] in self?.onQuit?() }
 
-        // 额外别名：⌘R 也作为整页/全屏截图
-        hotkeys[KeyCombo(keyCode: Int(kVK_ANSI_R), modifiers: .maskCommand)] = { [weak self] in self?.onFullScreenCapture?() }
-
         let eventMask: CGEventMask = (1 << CGEventType.keyDown.rawValue)
 
         guard let tap = CGEvent.tapCreate(

@@ -63,8 +63,17 @@ class AnnotationOverlayWindow: NSWindow {
         case .undo: annotationView.undo()
         case .redo: annotationView.redo()
         case .done: completeAnnotation()
-        case .cancel: orderOut(nil)
-        default: annotationView.currentTool = tool
+        case .cancel:
+            // 取消只是关闭标注窗口，不退出应用
+            annotationView.cancelTextEditingIfAny()
+            orderOut(nil)
+            NSApp.deactivate()
+        default:
+            // 如果正在编辑文字，先提交再切换工具
+            if annotationView.isEditingText {
+                annotationView.commitTextEditingIfAny()
+            }
+            annotationView.currentTool = tool
         }
         floatingToolbar.selectTool(annotationView.currentTool)
     }

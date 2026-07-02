@@ -7,6 +7,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private var lastCapture: NSImage?
     private var permissionsPanel: PermissionsPanel?
+    private var annotationWindow: AnnotationOverlayWindow?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -168,6 +169,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 try await Task.sleep(nanoseconds: 200_000_000)
                 let image = try await CaptureService.captureFullScreen()
                 self.handleNewCapture(image)
+            } catch CaptureError.captureCancelled {
+                // 用户取消
             } catch {
                 self.showError(error.localizedDescription)
             }
@@ -318,7 +321,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func showAnnotation(image: NSImage, originalFrame: CGRect? = nil) {
+        // 如果已有标注窗口打开，先关闭它
+        annotationWindow?.close()
         let overlay = AnnotationOverlayWindow(image: image, originalFrame: originalFrame)
+        annotationWindow = overlay
         overlay.makeKeyAndOrderFront(nil)
     }
 

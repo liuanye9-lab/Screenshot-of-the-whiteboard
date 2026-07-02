@@ -14,7 +14,7 @@ final class SettingsWindowController {
         }
 
         let w = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 520, height: 420),
+            contentRect: NSRect(x: 0, y: 0, width: 520, height: 480),
             styleMask: [.titled, .closable, .fullSizeContentView],
             backing: .buffered,
             defer: false
@@ -72,7 +72,8 @@ struct SettingsView: View {
                 .font(.system(size: 15, weight: .semibold))
 
             shortcutRow("局部截图", key: $hotkeys.regionKey, modifiers: $hotkeys.regionModifiers)
-            shortcutRow("全屏截图", key: $hotkeys.fullScreenKey, modifiers: $hotkeys.fullScreenModifiers)
+            shortcutRow("整页截图", key: $hotkeys.fullScreenKey, modifiers: $hotkeys.fullScreenModifiers)
+            shortcutRow("窗口截图", key: $hotkeys.windowKey, modifiers: $hotkeys.windowModifiers)
             shortcutRow("长图截图", key: $hotkeys.scrollKey, modifiers: $hotkeys.scrollModifiers)
             shortcutRow("标注上次截图", key: $hotkeys.annotateKey, modifiers: $hotkeys.annotateModifiers)
             shortcutRow("退出应用", key: $hotkeys.quitKey, modifiers: $hotkeys.quitModifiers)
