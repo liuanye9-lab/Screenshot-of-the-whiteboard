@@ -865,7 +865,7 @@
       });
     }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
 
-    document.querySelectorAll('.feature-card, .screenshot-card').forEach(el => observer.observe(el));
+    document.querySelectorAll('.feature-card, .screenshot-card, .guide-step').forEach(el => observer.observe(el));
 
     // Smooth reveal for staggered cards
     document.querySelectorAll('.feature-card').forEach((card, index) => {
@@ -873,6 +873,9 @@
     });
     document.querySelectorAll('.screenshot-card').forEach((card, index) => {
       card.style.transitionDelay = `${index * 100}ms`;
+    });
+    document.querySelectorAll('.guide-step').forEach((card, index) => {
+      card.style.transitionDelay = `${index * 80}ms`;
     });
   </script>
 </body>
