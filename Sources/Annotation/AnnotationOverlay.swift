@@ -111,6 +111,10 @@ class AnnotationOverlayWindow: NSWindow {
     }
 
     override func keyDown(with event: NSEvent) {
+        if firstResponder is NSText || firstResponder is NSTextField || firstResponder is CommitOnEnterTextField {
+            super.keyDown(with: event)
+            return
+        }
         let mods = event.modifierFlags
         switch UInt32(event.keyCode) {
         case UInt32(kVK_Escape):
@@ -811,6 +815,7 @@ class AnnotationCanvas: NSView {
         field.backgroundColor = NSColor.black.withAlphaComponent(0.2)
         field.isBordered = true
         field.isEditable = true
+        field.isSelectable = true
         field.placeholderString = "输入文字..."
         field.focusRingType = .none
         field.delegate = self
@@ -818,8 +823,12 @@ class AnnotationCanvas: NSView {
         field.layer?.borderWidth = 1 / zoomScale
         field.layer?.borderColor = NSColor.white.cgColor
         addSubview(field)
-        window?.makeFirstResponder(field)
         editingTextField = field
+        let becameFirstResponder = window?.makeFirstResponder(field) ?? false
+        if !becameFirstResponder {
+            _ = field.becomeFirstResponder()
+        }
+        field.selectText(nil)
         field.onCommit = { [weak self] text in
             self?.commitTextEditing(text: text, existingID: nil)
         }
@@ -841,6 +850,7 @@ class AnnotationCanvas: NSView {
         field.backgroundColor = NSColor.black.withAlphaComponent(0.2)
         field.isBordered = true
         field.isEditable = true
+        field.isSelectable = true
         field.stringValue = element.text
         field.placeholderString = "输入文字..."
         field.focusRingType = .none
@@ -849,8 +859,12 @@ class AnnotationCanvas: NSView {
         field.layer?.borderWidth = 1 / zoomScale
         field.layer?.borderColor = NSColor.white.cgColor
         addSubview(field)
-        window?.makeFirstResponder(field)
         editingTextField = field
+        let becameFirstResponder = window?.makeFirstResponder(field) ?? false
+        if !becameFirstResponder {
+            _ = field.becomeFirstResponder()
+        }
+        field.selectText(nil)
         field.onCommit = { [weak self] text in
             self?.commitTextEditing(text: text, existingID: element.id)
         }
