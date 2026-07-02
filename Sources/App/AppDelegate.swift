@@ -6,6 +6,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var statusItem: NSStatusItem!
     private var lastCapture: NSImage?
+    private var permissionsPanel: PermissionsPanel?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -334,8 +335,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - 权限引导
 
     @objc func showPermissionsGuide() {
-        let panel = PermissionsPanel()
-        panel.showGuide()
+        permissionsPanel = PermissionsPanel()
+        permissionsPanel?.showGuide()
     }
 
     @objc func showAbout() {

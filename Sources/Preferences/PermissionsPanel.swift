@@ -1,7 +1,7 @@
 // PermissionsPanel.swift — 权限引导面板（一键申请 + 自动检测）
 import AppKit
 
-class PermissionsPanel {
+class PermissionsPanel: NSObject {
 
     private weak var panel: NSWindow?
     private var refreshTimer: Timer?
