@@ -1,0 +1,13 @@
+# Build artifacts
+.build/
+SnapLeaf.app/
+SnapLeaf.zip
+
+# Preview / staging copies
+website-preview/
+
+# macOS
+.DS_Store
+
+# WorkBuddy
+.workbuddy/

@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 520">
+  <defs>
+    <linearGradient id="bg1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+    <linearGradient id="tool" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#60a5fa"/>
+      <stop offset="100%" stop-color="#34d399"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="520" fill="url(#bg1)" rx="24"/>
+  <!-- screenshot area -->
+  <rect x="120" y="80" width="560" height="360" rx="20" fill="#334155" opacity="0.6"/>
+  <rect x="120" y="80" width="560" height="360" rx="20" fill="#475569" opacity="0.2"/>
+  <!-- annotation shapes -->
+  <rect x="200" y="160" width="180" height="120" rx="8" fill="none" stroke="#f87171" stroke-width="4" stroke-linecap="round"/>
+  <line x1="430" y1="200" x2="560" y2="280" stroke="#60a5fa" stroke-width="5" stroke-linecap="round"/>
+  <polygon points="560,280 540,270 545,255" fill="#60a5fa"/>
+  <text x="230" y="330" font-family="-apple-system, system-ui, sans-serif" font-size="26" font-weight="700" fill="#f87171">UI 调整</text>
+  <!-- text input box with caret -->
+  <rect x="190" y="350" width="260" height="42" rx="8" fill="#0f172a" opacity="0.8" stroke="#34d399" stroke-width="2"/>
+  <text x="208" y="378" font-family="-apple-system, system-ui, sans-serif" font-size="18" fill="#fff">这里改成 16pt</text>
+  <rect x="354" y="360" width="2" height="22" fill="#34d399">
+    <animate attributeName="opacity" values="1;0;1" dur="1.2s" repeatCount="indefinite"/>
+  </rect>
+  <circle cx="640" cy="150" r="48" fill="#000" opacity="0.5"/>
+  <circle cx="640" cy="150" r="44" fill="none" stroke="#fff" stroke-width="2"/>
+  <line x1="640" y1="130" x2="640" y2="170" stroke="#fff" stroke-width="1"/>
+  <line x1="620" y1="150" x2="660" y2="150" stroke="#fff" stroke-width="1"/>
+  <!-- toolbar -->
+  <rect x="220" y="440" width="360" height="56" rx="28" fill="#0f172a" opacity="0.85"/>
+  <rect x="220" y="440" width="360" height="56" rx="28" fill="none" stroke="#fff" stroke-width="1" opacity="0.1"/>
+  <circle cx="252" cy="468" r="8" fill="#f87171"/>
+  <circle cx="284" cy="468" r="8" fill="#60a5fa"/>
+  <circle cx="316" cy="468" r="8" fill="#fbbf24"/>
+  <circle cx="348" cy="468" r="8" fill="#34d399"/>
+  <circle cx="380" cy="468" r="8" fill="#a78bfa"/>
+  <circle cx="412" cy="468" r="8" fill="#fff"/>
+  <rect x="452" y="458" width="64" height="20" rx="10" fill="#334155"/>
+  <rect x="456" y="462" width="16" height="12" rx="6" fill="#60a5fa"/>
+</svg>

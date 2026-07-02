@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 520">
+  <defs>
+    <linearGradient id="bg2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#e2e8f0"/>
+      <stop offset="100%" stop-color="#f8fafc"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="520" fill="url(#bg2)" rx="24"/>
+  <!-- menu bar -->
+  <rect x="0" y="0" width="800" height="56" fill="#f1f5f9" opacity="0.9"/>
+  <rect x="0" y="56" width="800" height="2" fill="#cbd5e1"/>
+  <!-- apple logo placeholder -->
+  <circle cx="40" cy="28" r="12" fill="#94a3b8"/>
+  <!-- menu items -->
+  <text x="120" y="34" font-family="-apple-system, system-ui, sans-serif" font-size="16" font-weight="600" fill="#334155">Finder</text>
+  <text x="210" y="34" font-family="-apple-system, system-ui, sans-serif" font-size="16" font-weight="500" fill="#334155">文件</text>
+  <text x="280" y="34" font-family="-apple-system, system-ui, sans-serif" font-size="16" font-weight="500" fill="#334155">编辑</text>
+  <text x="350" y="34" font-family="-apple-system, system-ui, sans-serif" font-size="16" font-weight="500" fill="#334155">视图</text>
+  <!-- status icon -->
+  <g transform="translate(720, 16)">
+    <rect x="0" y="0" width="24" height="24" rx="6" fill="url(#bg2)" opacity="0"/>
+    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z" transform="scale(1)" fill="#3b82f6"/>
+    <circle cx="12" cy="12" r="5" fill="none" stroke="#3b82f6" stroke-width="2"/>
+  </g>
+  <!-- dropdown menu -->
+  <rect x="680" y="60" width="220" height="280" rx="16" fill="#ffffff" opacity="0.95" filter="drop-shadow(0 12px 24px rgba(0,0,0,0.12))"/>
+  <text x="706" y="100" font-family="-apple-system, system-ui, sans-serif" font-size="16" font-weight="600" fill="#0f172a">SnapLeaf</text>
+  <line x1="706" y1="116" x2="874" y2="116" stroke="#e2e8f0" stroke-width="1"/>
+  <text x="706" y="150" font-family="-apple-system, system-ui, sans-serif" font-size="15" fill="#334155">局部截图  ⌥E</text>
+  <text x="706" y="186" font-family="-apple-system, system-ui, sans-serif" font-size="15" fill="#334155">全屏截图  ⌥Q</text>
+  <text x="706" y="222" font-family="-apple-system, system-ui, sans-serif" font-size="15" fill="#334155">长图截图  ⌥W</text>
+  <text x="706" y="258" font-family="-apple-system, system-ui, sans-serif" font-size="15" fill="#334155">标注上次  ⌥A</text>
+  <line x1="706" y1="282" x2="874" y2="282" stroke="#e2e8f0" stroke-width="1"/>
+  <text x="706" y="316" font-family="-apple-system, system-ui, sans-serif" font-size="15" fill="#334155">设置...</text>
+  <text x="706" y="352" font-family="-apple-system, system-ui, sans-serif" font-size="15" fill="#ef4444">退出  ⌘Q</text>
+</svg>

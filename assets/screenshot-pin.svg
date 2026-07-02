@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 520">
+  <defs>
+    <linearGradient id="bg3" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#c084fc"/>
+      <stop offset="100%" stop-color="#60a5fa"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="520" fill="url(#bg3)" rx="24"/>
+  <!-- desktop background pattern -->
+  <rect x="0" y="0" width="800" height="520" fill="#ffffff" opacity="0.1"/>
+  <!-- pinned window -->
+  <rect x="220" y="110" width="360" height="300" rx="20" fill="#ffffff" opacity="0.85" filter="drop-shadow(0 20px 40px rgba(0,0,0,0.18))"/>
+  <rect x="220" y="110" width="360" height="300" rx="20" fill="none" stroke="#ffffff" stroke-width="1" opacity="0.5"/>
+  <!-- image inside pin -->
+  <rect x="236" y="150" width="328" height="220" rx="12" fill="#f1f5f9"/>
+  <rect x="270" y="190" width="180" height="100" rx="8" fill="none" stroke="#f87171" stroke-width="4"/>
+  <line x1="480" y1="210" x2="530" y2="260" stroke="#3b82f6" stroke-width="4" stroke-linecap="round"/>
+  <polygon points="530,260 515,253 518,242" fill="#3b82f6"/>
+  <text x="270" y="330" font-family="-apple-system, system-ui, sans-serif" font-size="20" font-weight="700" fill="#f87171">参考对比</text>
+  <!-- controls -->
+  <rect x="520" y="120" width="44" height="22" rx="6" fill="#000000" opacity="0.35"/>
+  <circle cx="566" cy="116" r="8" fill="#ef4444" opacity="0.9"/>
+</svg>

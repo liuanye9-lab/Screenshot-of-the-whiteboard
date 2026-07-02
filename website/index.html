@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SnapLeaf — 轻量截图 + 全局标注白板</title>
+  <meta name="description" content="SnapLeaf 是 macOS 上的极简截图与标注工具，支持截图、标注、贴图、OCR 与 AI 元数据导出。" />
+  <link rel="icon" type="image/svg+xml" href="https://raw.githubusercontent.com/liuanye9-lab/Screenshot-of-the-whiteboard/main/assets/logo.svg" />
+  <style>
+    :root {
+      --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --surface: rgba(255, 255, 255, 0.72);
+      --surface-solid: #ffffff;
+      --border: rgba(255, 255, 255, 0.5);
+      --shadow: 0 24px 60px rgba(15, 23, 42, 0.12);
+      --shadow-sm: 0 4px 14px rgba(15, 23, 42, 0.06);
+      --gradient: linear-gradient(135deg, #4ade80 0%, #3b82f6 100%);
+      --gradient-soft: linear-gradient(135deg, rgba(74, 222, 128, 0.12) 0%, rgba(59, 130, 246, 0.12) 100%);
+      --radius: 28px;
+      --radius-sm: 18px;
+      --radius-xs: 12px;
+      --max-width: 1120px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      font-family: var(--font);
+      color: var(--text);
+      line-height: 1.6;
+      background: #f8fafc;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      top: -20vh;
+      left: -10vw;
+      width: 60vw;
+      height: 60vw;
+      background: radial-gradient(circle, rgba(74, 222, 128, 0.28) 0%, transparent 60%);
+      z-index: -1;
+      pointer-events: none;
+    }
+
+    body::after {
+      content: "";
+      position: fixed;
+      bottom: -20vh;
+      right: -10vw;
+      width: 60vw;
+      height: 60vw;
+      background: radial-gradient(circle, rgba(59, 130, 246, 0.28) 0%, transparent 60%);
+      z-index: -1;
+      pointer-events: none;
+    }
+
+    .container {
+      width: min(92%, var(--max-width));
+      margin: 0 auto;
+      padding: 0 20px;
+    }
+
+    /* Header */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(20px) saturate(1.8);
+      background: rgba(248, 250, 252, 0.76);
+      border-bottom: 1px solid rgba(203, 213, 225, 0.4);
+    }
+
+    nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 72px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: var(--text);
+      font-weight: 700;
+      font-size: 1.25rem;
+    }
+
+    .brand img {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .nav-links a {
+      margin-left: 32px;
+      text-decoration: none;
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      font-weight: 500;
+      transition: color 0.2s ease;
+    }
+
+    .nav-links a:hover { color: var(--text); }
+
+    /* Hero */
+    .hero {
+      text-align: center;
+      padding: 120px 0 80px;
+    }
+
+    .hero .logo-wrap {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 128px;
+      height: 128px;
+      border-radius: 32px;
+      background: var(--surface-solid);
+      box-shadow: var(--shadow);
+      margin-bottom: 32px;
+      animation: fadeUp 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+
+    .hero .logo-wrap img {
+      width: 92px;
+      height: 92px;
+    }
+
+    h1 {
+      font-size: clamp(2.5rem, 6vw, 4.5rem);
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      margin: 0 0 16px;
+      line-height: 1.1;
+      animation: fadeUp 0.8s 0.08s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+
+    .tagline {
+      font-size: clamp(1.1rem, 2.4vw, 1.5rem);
+      color: var(--text-muted);
+      max-width: 640px;
+      margin: 0 auto 48px;
+      animation: fadeUp 0.8s 0.16s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+
+    .hero-buttons {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      flex-wrap: wrap;
+      animation: fadeUp 0.8s 0.24s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 16px 28px;
+      border-radius: 100px;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 1rem;
+      transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+    }
+
+    .btn:hover { transform: translateY(-2px); }
+
+    .btn-primary {
+      color: #fff;
+      background: var(--gradient);
+      box-shadow: 0 10px 30px rgba(59, 130, 246, 0.35);
+    }
+
+    .btn-primary:hover { box-shadow: 0 14px 40px rgba(59, 130, 246, 0.45); }
+
+    .btn-secondary {
+      color: var(--text);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      backdrop-filter: blur(10px);
+    }
+
+    .btn-secondary:hover { background: rgba(255, 255, 255, 0.9); }
+
+    /* Section */
+    section {
+      padding: 100px 0;
+    }
+
+    .section-title {
+      text-align: center;
+      margin-bottom: 64px;
+    }
+
+    .section-title h2 {
+      font-size: clamp(2rem, 4.5vw, 3rem);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      margin: 0 0 12px;
+    }
+
+    .section-title p {
+      color: var(--text-muted);
+      font-size: 1.15rem;
+      max-width: 520px;
+      margin: 0 auto;
+    }
+
+    /* Features */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 28px;
+    }
+
+    .feature-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 36px 28px;
+      backdrop-filter: blur(20px);
+      box-shadow: var(--shadow-sm);
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      opacity: 0;
+      transform: translateY(24px);
+    }
+
+    .feature-card.visible {
+      opacity: 1;
+      transform: translateY(0);
+      transition: opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1), transform 0.7s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.3s ease;
+    }
+
+    .feature-card:hover {
+      transform: translateY(-6px);
+      box-shadow: var(--shadow);
+    }
+
+    .feature-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: var(--radius-xs);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 22px;
+      background: var(--gradient-soft);
+    }
+
+    .feature-icon svg {
+      width: 28px;
+      height: 28px;
+      stroke: #3b82f6;
+    }
+
+    .feature-card h3 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin: 0 0 10px;
+    }
+
+    .feature-card p {
+      color: var(--text-muted);
+      margin: 0;
+      font-size: 0.98rem;
+    }
+
+    /* Screenshots */
+    .screenshots {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 28px;
+    }
+
+    .screenshot-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow-sm);
+      transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.4s ease;
+      opacity: 0;
+      transform: translateY(30px) scale(0.98);
+    }
+
+    .screenshot-card.visible {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      transition: opacity 0.8s cubic-bezier(0.22, 1, 0.36, 1), transform 0.8s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.4s ease;
+    }
+
+    .screenshot-card:hover {
+      transform: translateY(-8px) scale(1.02);
+      box-shadow: var(--shadow);
+    }
+
+    .screenshot-card img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    .screenshot-caption {
+      padding: 20px 24px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      color: var(--text);
+      text-align: center;
+      background: rgba(255, 255, 255, 0.5);
+    }
+
+    /* Download */
+    .download {
+      text-align: center;
+      padding: 80px 0;
+      background: var(--gradient-soft);
+      border-radius: var(--radius);
+      margin: 40px auto;
+      max-width: 900px;
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--border);
+    }
+
+    .download h2 {
+      font-size: 2.25rem;
+      font-weight: 700;
+      margin: 0 0 16px;
+      letter-spacing: -0.02em;
+    }
+
+    .download p {
+      color: var(--text-muted);
+      margin: 0 0 36px;
+      font-size: 1.1rem;
+    }
+
+    /* Footer */
+    footer {
+      text-align: center;
+      padding: 40px 0 80px;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    footer a {
+      color: var(--text-muted);
+      text-decoration: none;
+      margin: 0 12px;
+    }
+
+    footer a:hover { color: var(--text); }
+
+    /* Animations */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(30px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .screenshots { grid-template-columns: 1fr; }
+      .features-grid { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 640px) {
+      .nav-links { display: none; }
+      .hero { padding: 80px 0 60px; }
+      .hero .logo-wrap { width: 100px; height: 100px; }
+      .hero .logo-wrap img { width: 72px; height: 72px; }
+      .btn { padding: 14px 22px; font-size: 0.95rem; }
+      section { padding: 72px 0; }
+      .download { padding: 60px 20px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <nav>
+        <a class="brand" href="#">
+          <img src="https://raw.githubusercontent.com/liuanye9-lab/Screenshot-of-the-whiteboard/main/assets/logo.svg" alt="SnapLeaf" />
+          SnapLeaf
+        </a>
+        <div class="nav-links">
+          <a href="#features">功能</a>
+          <a href="#screenshots">截图</a>
+          <a href="#download">下载</a>
+        </div>
+      </nav>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="container">
+      <div class="logo-wrap">
+        <img src="https://raw.githubusercontent.com/liuanye9-lab/Screenshot-of-the-whiteboard/main/assets/logo.svg" alt="SnapLeaf Logo" />
+      </div>
+      <h1>SnapLeaf</h1>
+      <p class="tagline">macOS 上极简的截图 + 全局标注白板。截图后用键盘输入法直接打字标注，配合箭头、矩形、画笔，让 AI 一眼读懂你的修改意图。</p>
+      <div class="hero-buttons">
+        <a class="btn btn-primary" href="https://apps.apple.com/cn/app/snapleaf/" target="_blank" rel="noopener">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M5 6l2 2M19 6l-2 2M5 18l2-2M19 18l-2-2M12 22v-4M8 12h8M7 12a5 5 0 0 1 10 0"/></svg>
+          App Store 下载
+        </a>
+        <a class="btn btn-secondary" href="https://liuanye9-lab.github.io/Screenshot-of-the-whiteboard/" target="_blank" rel="noopener">访问官网</a>
+      </div>
+    </div>
+  </section>
+
+  <section id="features">
+    <div class="container">
+      <div class="section-title">
+        <h2>核心功能</h2>
+        <p>为设计师、产品与开发者打造的轻量截图工作流。</p>
+      </div>
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+          </div>
+          <h3>全局截图 + 即时标注</h3>
+          <p>快捷键唤起区域/全屏/窗口/长图截图，截图后立即进入无边框标注白板，支持缩放、平移与撤销重做。</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/><path d="M8 12h.01"/><path d="M12 12h.01"/><path d="M16 12h.01"/></svg>
+          </div>
+          <h3>键盘文字标注</h3>
+          <p>在截图上直接调用输入法打字，支持中/英文、多行文本、颜色与字号调整，像聊天一样把修改意见写在图上。</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          </div>
+          <h3>丰富标注工具</h3>
+          <p>矩形、箭头、画笔、马赛克、高亮、序号等工具，配合颜色、粗细选择与磁吸辅助线，精确定位修改位置。</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 2.5 1.3.4 1.9 1.2 2 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>
+          </div>
+          <h3>贴图置顶</h3>
+          <p>将截图钉在屏幕最上层，支持透明度调节、滚轮缩放、双击适配/原始尺寸、右键保存与 Cmd+W 关闭。</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
+          </div>
+          <h3>OCR 识别 + 历史管理</h3>
+          <p>一键提取截图中的中英文字，历史浏览器以缩略图网格展示，双击即可重新标注或置顶。</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+          </div>
+          <h3>AI 友好导出</h3>
+          <p>标注结果一键复制图片 + JSON 元数据，或保存 PNG + JSON 文件，让 AI 准确理解修改意图。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="screenshots">
+    <div class="container">
+      <div class="section-title">
+        <h2>应用截图</h2>
+        <p>极简界面，专注创作。</p>
+      </div>
+      <div class="screenshots">
+        <div class="screenshot-card">
+          <img src="https://raw.githubusercontent.com/liuanye9-lab/Screenshot-of-the-whiteboard/main/assets/screenshot-annotation.svg" alt="标注白板" />
+          <div class="screenshot-caption">无边框标注白板</div>
+        </div>
+        <div class="screenshot-card">
+          <img src="https://raw.githubusercontent.com/liuanye9-lab/Screenshot-of-the-whiteboard/main/assets/screenshot-menu.svg" alt="菜单栏" />
+          <div class="screenshot-caption">菜单栏快捷入口</div>
+        </div>
+        <div class="screenshot-card">
+          <img src="https://raw.githubusercontent.com/liuanye9-lab/Screenshot-of-the-whiteboard/main/assets/screenshot-pin.svg" alt="贴图置顶" />
+          <div class="screenshot-caption">贴图置顶参考</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="download">
+    <div class="container">
+      <div class="download">
+        <h2>立即下载 SnapLeaf</h2>
+        <p>macOS 14+ 专用，开箱即用。</p>
+        <div class="hero-buttons">
+          <a class="btn btn-primary" href="https://apps.apple.com/cn/app/snapleaf/" target="_blank" rel="noopener">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M5 6l2 2M19 6l-2 2M5 18l2-2M19 18l-2-2M12 22v-4M8 12h8M7 12a5 5 0 0 1 10 0"/></svg>
+            App Store 下载
+          </a>
+          <a class="btn btn-secondary" href="https://liuanye9-lab.github.io/Screenshot-of-the-whiteboard/" target="_blank" rel="noopener">访问官方网站</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="container">
+      <p>&copy; 2026 SnapLeaf. All rights reserved.</p>
+      <p>
+        <a href="https://github.com/liuanye9-lab/Screenshot-of-the-whiteboard" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://liuanye9-lab.github.io/Screenshot-of-the-whiteboard/" target="_blank" rel="noopener">官网</a>
+      </p>
+    </div>
+  </footer>
+
+  <script>
+    // Intersection Observer for scroll animations
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+
+    document.querySelectorAll('.feature-card, .screenshot-card').forEach(el => observer.observe(el));
+
+    // Smooth reveal for staggered cards
+    document.querySelectorAll('.feature-card').forEach((card, index) => {
+      card.style.transitionDelay = `${index * 60}ms`;
+    });
+    document.querySelectorAll('.screenshot-card').forEach((card, index) => {
+      card.style.transitionDelay = `${index * 100}ms`;
+    });
+  </script>
+</body>
+</html>
