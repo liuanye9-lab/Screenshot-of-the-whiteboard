@@ -104,14 +104,11 @@ class CaptureService {
             AXValueGetValue(siz as! AXValue, .cgSize, &sizeCGSize)
             let windowRect = CGRect(origin: posPoint, size: sizeCGSize)
 
-            guard let cgImage = CGDisplayCreateImage(CGMainDisplayID()) else {
+            guard CGDisplayCreateImage(CGMainDisplayID()) != nil else {
                 onComplete(nil); return
             }
-            let initial = cropCGImage(cgImage, to: windowRect)
-            let initialImage = NSImage(cgImage: initial, size: windowRect.size)
-
             currentScrollingOverlay?.orderOut(nil)
-            currentScrollingOverlay = ScrollingOverlayWindow(initialImage: initialImage, windowRect: windowRect) { image in
+            currentScrollingOverlay = ScrollingOverlayWindow(windowRect: windowRect) { image in
                 currentScrollingOverlay = nil
                 onComplete(image)
             }
