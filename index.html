@@ -334,6 +334,145 @@
       gap: 28px;
     }
 
+    /* Guide */
+    .guide-steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 24px;
+      counter-reset: step;
+    }
+
+    .guide-step {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 32px 24px;
+      backdrop-filter: blur(20px);
+      box-shadow: var(--shadow-sm);
+      position: relative;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      opacity: 0;
+      transform: translateY(20px);
+    }
+
+    .guide-step.visible {
+      opacity: 1;
+      transform: translateY(0);
+      transition: opacity 0.6s cubic-bezier(0.22, 1, 0.36, 1), transform 0.6s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.3s ease;
+    }
+
+    .guide-step:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow);
+    }
+
+    .guide-step::before {
+      counter-increment: step;
+      content: counter(step);
+      position: absolute;
+      top: -16px;
+      left: 24px;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--gradient);
+      color: #fff;
+      font-size: 1.1rem;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 14px rgba(59, 130, 246, 0.3);
+    }
+
+    .guide-step h3 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin: 8px 0 10px;
+    }
+
+    .guide-step p {
+      color: var(--text-muted);
+      margin: 0;
+      font-size: 0.92rem;
+      line-height: 1.7;
+    }
+
+    .guide-step code {
+      display: inline-block;
+      padding: 2px 8px;
+      background: rgba(59, 130, 246, 0.1);
+      border-radius: 6px;
+      font-size: 0.85rem;
+      color: #3b82f6;
+      font-weight: 600;
+    }
+
+    /* Comparison Table */
+    .compare-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow-sm);
+      backdrop-filter: blur(20px);
+    }
+
+    .compare-table th,
+    .compare-table td {
+      padding: 18px 20px;
+      text-align: center;
+      border-bottom: 1px solid rgba(203, 213, 225, 0.3);
+    }
+
+    .compare-table th {
+      background: rgba(59, 130, 246, 0.06);
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: var(--text);
+    }
+
+    .compare-table th:first-child,
+    .compare-table td:first-child {
+      text-align: left;
+      font-weight: 600;
+      color: var(--text);
+      width: 28%;
+    }
+
+    .compare-table th.snapleaf-col {
+      background: var(--gradient-soft);
+      color: #3b82f6;
+    }
+
+    .compare-table td .check {
+      color: #22c55e;
+      font-size: 1.2rem;
+      font-weight: 800;
+    }
+
+    .compare-table td .cross {
+      color: #cbd5e1;
+      font-size: 1.2rem;
+    }
+
+    .compare-table td .partial {
+      color: #f59e0b;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    .compare-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .compare-table tr:hover td {
+      background: rgba(59, 130, 246, 0.03);
+    }
+
     .screenshot-card {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -445,8 +584,9 @@
         </a>
         <div class="nav-links">
           <a href="#features">功能</a>
+          <a href="#guide">使用指南</a>
+          <a href="#compare">对比</a>
           <a href="#shortcuts">快捷键</a>
-          <a href="#screenshots">截图</a>
           <a href="#download">下载</a>
         </div>
       </nav>
@@ -539,6 +679,129 @@
         <div class="shortcut-row"><span class="shortcut-label">退出应用</span><span class="shortcut-keys"><span class="key">⌘</span><span class="key">⇧</span><span class="key">Q</span></span></div>
         <div class="shortcut-row"><span class="shortcut-label">复制图片 + JSON</span><span class="shortcut-keys"><span class="key">⌘</span><span class="key">⇧</span><span class="key">C</span></span></div>
       </div>
+    </div>
+  </section>
+
+  <section id="guide">
+    <div class="container">
+      <div class="section-title">
+        <h2>使用指南</h2>
+        <p>四步上手，从截图到标注一气呵成。</p>
+      </div>
+      <div class="guide-steps">
+        <div class="guide-step">
+          <h3>下载安装</h3>
+          <p>点击上方「下载 SnapLeaf」获取 <code>SnapLeaf.zip</code>，解压后将 <code>SnapLeaf.app</code> 拖入「应用程序」文件夹，双击启动。首次运行需在系统设置中授权「屏幕录制」和「辅助功能」权限。</p>
+        </div>
+        <div class="guide-step">
+          <h3>快捷截图</h3>
+          <p>菜单栏会出现相机图标。按 <code>⌘W</code> 局部截图（框选区域），<code>⌘Q</code> 全屏截图，<code>⌘E</code> 窗口截图，<code>⌘T</code> 长图截图。所有快捷键均可在设置中自定义。</p>
+        </div>
+        <div class="guide-step">
+          <h3>标注白板</h3>
+          <p>截图后自动进入标注白板。按 <code>⌘3</code> 选文字工具，在图上单击即可用键盘输入法打字标注。还可使用矩形 <code>⌘1</code>、箭头 <code>⌘2</code>、画笔 <code>⌘4</code>、马赛克 <code>⌘5</code>、高亮 <code>⌘6</code>、序号 <code>⌘7</code> 等工具。滚轮缩放，空格拖拽。</p>
+        </div>
+        <div class="guide-step">
+          <h3>导出与 AI 协作</h3>
+          <p>按 <code>↵</code> 完成标注，自动复制到剪贴板。按 <code>⌘⇧C</code> 复制图片 + JSON 元数据（包含每个标注的位置、颜色、文字），直接粘贴给 AI 助手，让 AI 精准理解你的修改意图。也可 <code>⌘S</code> 保存 PNG + JSON 文件。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="compare">
+    <div class="container">
+      <div class="section-title">
+        <h2>对比优势</h2>
+        <p>SnapLeaf 与 macOS 截图、Codex、Claude 等工具的差异。</p>
+      </div>
+      <table class="compare-table">
+        <thead>
+          <tr>
+            <th>功能特性</th>
+            <th class="snapleaf-col">SnapLeaf</th>
+            <th>macOS 截图</th>
+            <th>Codex / Claude</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>全局快捷键截图</td>
+            <td><span class="check">✓</span></td>
+            <td><span class="check">✓</span></td>
+            <td><span class="cross">—</span></td>
+          </tr>
+          <tr>
+            <td>键盘输入法打字标注</td>
+            <td><span class="check">✓</span></td>
+            <td><span class="check">✓</span></td>
+            <td><span class="cross">—</span></td>
+          </tr>
+          <tr>
+            <td>标注后 AI 元数据导出 (JSON)</td>
+            <td><span class="check">✓</span></td>
+            <td><span class="cross">—</span></td>
+            <td><span class="partial">仅文本</span></td>
+          </tr>
+          <tr>
+            <td>自动滚动长图截图</td>
+            <td><span class="check">✓</span></td>
+            <td><span class="cross">—</span></td>
+            <td><span class="cross">—</span></td>
+          </tr>
+          <tr>
+            <td>磁吸辅助线对齐</td>
+            <td><span class="check">✓</span></td>
+            <td><span class="cross">—</span></td>
+            <td><span class="cross">—</span></td>
+          </tr>
+          <tr>
+            <td>贴图置顶参考</td>
+            <td><span class="check">✓</span></td>
+            <td><span class="check">✓</span></td>
+            <td><span class="cross">—</span></td>
+          </tr>
+          <tr>
+            <td>OCR 文字识别</td>
+            <td><span class="check">✓</span></td>
+            <td><span class="partial">实况文本</span></td>
+            <td><span class="check">✓</span></td>
+          </tr>
+          <tr>
+            <td>截图历史管理器</td>
+            <td><span class="check">✓</span></td>
+            <td><span class="cross">—</span></td>
+            <td><span class="cross">—</span></td>
+          </tr>
+          <tr>
+            <td>多步撤销 / 重做</td>
+            <td><span class="check">✓</span></td>
+            <td><span class="cross">—</span></td>
+            <td><span class="cross">—</span></td>
+          </tr>
+          <tr>
+            <td>完全离线，无需联网</td>
+            <td><span class="check">✓</span></td>
+            <td><span class="check">✓</span></td>
+            <td><span class="cross">—</span></td>
+          </tr>
+          <tr>
+            <td>免费开源</td>
+            <td><span class="check">✓</span></td>
+            <td><span class="check">✓</span></td>
+            <td><span class="partial">订阅制</span></td>
+          </tr>
+          <tr>
+            <td>代码理解与生成</td>
+            <td><span class="cross">—</span></td>
+            <td><span class="cross">—</span></td>
+            <td><span class="check">✓</span></td>
+          </tr>
+        </tbody>
+      </table>
+      <p style="text-align: center; color: var(--text-muted); font-size: 0.88rem; margin-top: 24px;">
+        SnapLeaf 不是 AI 编码助手的替代品，而是<strong>截图标注 + AI 协作的桥梁</strong>：用 SnapLeaf 标注截图并导出 JSON 元数据，再粘贴给 Codex / Claude 等 AI 工具，让 AI 更精准地理解你的修改意图。
+      </p>
     </div>
   </section>
 
