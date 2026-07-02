@@ -23,4 +23,29 @@ enum PermissionManager {
     static var allGranted: Bool {
         checkScreenRecording() && checkAccessibility()
     }
+
+    static func openScreenRecordingSettings() {
+        let urls = [
+            URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"),
+            URL(string: "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension")
+        ]
+        for url in urls {
+            if let url = url, NSWorkspace.shared.open(url) { return }
+        }
+    }
+
+    static func openAccessibilitySettings() {
+        let urls = [
+            URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"),
+            URL(string: "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension")
+        ]
+        for url in urls {
+            if let url = url, NSWorkspace.shared.open(url) { return }
+        }
+    }
+
+    static func requestAll() {
+        requestScreenRecording()
+        requestAccessibility()
+    }
 }
