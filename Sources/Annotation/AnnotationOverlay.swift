@@ -111,7 +111,7 @@ class AnnotationOverlayWindow: NSWindow {
     }
 
     override func keyDown(with event: NSEvent) {
-        if firstResponder is NSText || firstResponder is NSTextField || firstResponder is CommitOnEnterTextField {
+        if firstResponder is NSText || firstResponder is NSTextField || firstResponder is CommitOnEnterTextView || firstResponder is NSTextView {
             super.keyDown(with: event)
             return
         }
@@ -188,7 +188,12 @@ class AnnotationCanvas: NSView {
 
     func applyColorChange(_ color: NSColor) {
         currentColor = color
-        editingTextField?.textColor = color
+        editingTextView?.textColor = color
+        editingTextView?.insertionPointColor = color
+        editingTextView?.typingAttributes = [
+            .font: NSFont.systemFont(ofSize: 16 * zoomScale, weight: .semibold),
+            .foregroundColor: color
+        ]
 
         if let id = selectedID, let idx = elements.firstIndex(where: { $0.id == id }), elements[idx].kind == .text {
             saveState()
@@ -203,7 +208,7 @@ class AnnotationCanvas: NSView {
         toolbar?.setColor(color)
     }
 
-    var isEditingText: Bool { editingTextField != nil }
+    var isEditingText: Bool { editingTextView != nil }
 
     private var zoomScale: CGFloat = 1.0
     private var panOffset: CGPoint = .zero
@@ -218,7 +223,7 @@ class AnnotationCanvas: NSView {
     private var currentDragImagePoint: CGPoint?
     private var guideLines: [GuideLine] = []
 
-    private var editingTextField: NSTextField?
+    private var editingTextView: CommitOnEnterTextView?
     private var editingExistingID: UUID?
     private var editingTextAnchor: CGPoint?
 
@@ -805,18 +810,18 @@ class AnnotationCanvas: NSView {
 
     // MARK: - 文字输入
     private func startTextInput(at imagePoint: CGPoint) {
-        guard editingTextField == nil else { return }
+        guard editingTextView == nil else { return }
         editingExistingID = nil
         editingTextAnchor = imagePoint
         let viewRect = imageRectToView(CGRect(x: imagePoint.x, y: imagePoint.y - 14, width: 200, height: 28))
-        let field = createTextField(frame: viewRect, text: nil, color: currentColor, fontSize: 16)
-        addSubview(field)
-        editingTextField = field
-        activateTextField(field)
-        field.onCommit = { [weak self] text in
+        let textView = createTextView(frame: viewRect, text: nil, color: currentColor, fontSize: 16)
+        addSubview(textView)
+        editingTextView = textView
+        activateTextView(textView)
+        textView.onCommit = { [weak self] text in
             self?.commitTextEditing(text: text, existingID: nil)
         }
-        field.onCancel = { [weak self] in
+        textView.onCancel = { [weak self] in
             self?.cancelTextEditing()
         }
     }
@@ -828,49 +833,63 @@ class AnnotationCanvas: NSView {
         editingTextAnchor = element.frame.origin
         syncToolbarColor(for: element)
         let viewRect = imageRectToView(element.frame)
-        let field = createTextField(frame: viewRect, text: element.text, color: element.color, fontSize: element.fontSize)
-        addSubview(field)
-        editingTextField = field
-        activateTextField(field)
-        field.onCommit = { [weak self] text in
+        let textView = createTextView(frame: viewRect, text: element.text, color: element.color, fontSize: element.fontSize)
+        addSubview(textView)
+        editingTextView = textView
+        activateTextView(textView)
+        textView.onCommit = { [weak self] text in
             self?.commitTextEditing(text: text, existingID: element.id)
         }
-        field.onCancel = { [weak self] in
+        textView.onCancel = { [weak self] in
             self?.cancelTextEditing()
         }
     }
 
-    private func createTextField(frame: NSRect, text: String?, color: NSColor, fontSize: CGFloat) -> CommitOnEnterTextField {
-        let field = CommitOnEnterTextField(frame: frame)
-        field.font = NSFont.systemFont(ofSize: fontSize * zoomScale, weight: .semibold)
-        field.textColor = color
-        field.isEditable = true
-        field.isSelectable = true
-        field.isEnabled = true
-        field.isBezeled = false
-        field.isBordered = false
-        field.drawsBackground = true
-        field.backgroundColor = NSColor.black.withAlphaComponent(0.2)
-        if let text = text { field.stringValue = text }
-        field.placeholderString = "输入文字..."
-        field.focusRingType = .none
-        field.delegate = self
-        field.wantsLayer = true
-        field.layer?.cornerRadius = 4
-        field.layer?.borderWidth = 1 / zoomScale
-        field.layer?.borderColor = NSColor.white.cgColor
-        return field
+    private func createTextView(frame: NSRect, text: String?, color: NSColor, fontSize: CGFloat) -> CommitOnEnterTextView {
+        let textStorage = NSTextStorage()
+        let layoutManager = NSLayoutManager()
+        let textContainer = NSTextContainer(containerSize: NSSize(width: CGFloat.greatestFiniteMagnitude, height: frame.height))
+        textContainer.widthTracksTextView = false
+        textContainer.heightTracksTextView = false
+        layoutManager.addTextContainer(textContainer)
+        textStorage.addLayoutManager(layoutManager)
+
+        let tv = CommitOnEnterTextView(frame: frame, textContainer: textContainer)
+        tv.font = NSFont.systemFont(ofSize: fontSize * zoomScale, weight: .semibold)
+        tv.textColor = color
+        tv.insertionPointColor = color
+        tv.backgroundColor = NSColor.black.withAlphaComponent(0.25)
+        tv.isEditable = true
+        tv.isSelectable = true
+        tv.isRichText = false
+        tv.isAutomaticSpellingCorrectionEnabled = false
+        tv.isContinuousSpellCheckingEnabled = false
+        tv.isGrammarCheckingEnabled = false
+        tv.importsGraphics = false
+        tv.usesInspectorBar = false
+        tv.usesFindBar = false
+        tv.usesFontPanel = false
+        tv.displaysLinkToolTips = false
+        tv.isHorizontallyResizable = false
+        tv.isVerticallyResizable = false
+        tv.string = text ?? ""
+        tv.textContainerInset = NSSize(width: 2, height: (frame.height - fontSize * zoomScale) / 2)
+        tv.delegate = self
+        tv.wantsLayer = true
+        tv.layer?.cornerRadius = 4
+        tv.layer?.borderWidth = 1 / zoomScale
+        tv.layer?.borderColor = NSColor.white.cgColor
+        return tv
     }
 
-    private func activateTextField(_ field: CommitOnEnterTextField) {
+    private func activateTextView(_ textView: CommitOnEnterTextView) {
         DispatchQueue.main.async { [weak self] in
-            guard let self = self, self.editingTextField == field else { return }
+            guard let self = self, self.editingTextView == textView else { return }
             self.window?.makeKeyAndOrderFront(nil)
-            let becameFirstResponder = self.window?.makeFirstResponder(field) ?? false
+            let becameFirstResponder = self.window?.makeFirstResponder(textView) ?? false
             if !becameFirstResponder {
-                _ = field.becomeFirstResponder()
+                _ = textView.becomeFirstResponder()
             }
-            field.selectText(nil)
         }
     }
 
@@ -904,13 +923,13 @@ class AnnotationCanvas: NSView {
     }
 
     func commitTextEditingIfAny() {
-        guard let field = editingTextField else { return }
-        commitTextEditing(text: field.stringValue, existingID: editingExistingID)
+        guard let textView = editingTextView else { return }
+        commitTextEditing(text: textView.string, existingID: editingExistingID)
     }
 
     private func cancelTextEditing() {
-        editingTextField?.removeFromSuperview()
-        editingTextField = nil
+        editingTextView?.removeFromSuperview()
+        editingTextView = nil
         editingExistingID = nil
         editingTextAnchor = nil
         needsDisplay = true
@@ -1002,38 +1021,26 @@ class AnnotationCanvas: NSView {
 
 // MARK: - 文字输入控件
 
-final class CommitOnEnterTextField: NSTextField {
+final class CommitOnEnterTextView: NSTextView {
     var onCommit: ((String) -> Void)?
     var onCancel: (() -> Void)?
 
-    override func keyDown(with event: NSEvent) {
-        if event.keyCode == kVK_Escape {
+    override func doCommand(by selector: Selector) {
+        if selector == #selector(NSResponder.insertNewline(_:)) {
+            onCommit?(string)
+        } else if selector == #selector(NSResponder.cancelOperation(_:)) {
             onCancel?()
-        } else if event.keyCode == kVK_Return {
-            onCommit?(stringValue)
         } else {
-            super.keyDown(with: event)
+            super.doCommand(by: selector)
         }
     }
 }
 
 // MARK: - 委托
 
-extension AnnotationCanvas: NSTextFieldDelegate {
-    func controlTextDidEndEditing(_ obj: Notification) {
-        guard let field = obj.object as? NSTextField, field == editingTextField else { return }
-        commitTextEditing(text: field.stringValue, existingID: editingExistingID)
-    }
-
-    func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
-        if commandSelector == #selector(NSResponder.insertNewline(_:)) {
-            commitTextEditingIfAny()
-            return true
-        }
-        if commandSelector == #selector(NSResponder.cancelOperation(_:)) {
-            cancelTextEditing()
-            return true
-        }
-        return false
+extension AnnotationCanvas: NSTextViewDelegate {
+    func textDidEndEditing(_ notification: Notification) {
+        guard let textView = notification.object as? CommitOnEnterTextView, textView == editingTextView else { return }
+        commitTextEditing(text: textView.string, existingID: editingExistingID)
     }
 }
