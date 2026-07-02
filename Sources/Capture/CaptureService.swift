@@ -76,48 +76,9 @@ class CaptureService {
         throw CaptureError.noWindowFound
     }
 
-    /// 滚动长图截图：获取前台窗口区域，进入手动滚动覆层由用户逐段截取拼接
+    /// 滚动长图截图：先区域选择，再自动滚动捕获拼接
     static func captureScrolling(onComplete: @escaping (NSImage?) -> Void) {
-        Task { @MainActor in
-            // 获取前台窗口的位置和大小
-            guard let frontApp = NSWorkspace.shared.frontmostApplication else {
-                onComplete(nil); return
-            }
-            let pid = frontApp.processIdentifier
-
-            let app = AXUIElementCreateApplication(pid)
-            var windowRef: CFTypeRef?
-            guard AXUIElementCopyAttributeValue(app, kAXWindowsAttribute as CFString, &windowRef) == .success,
-                  let windows = windowRef as? [AXUIElement],
-                  let mainWindow = windows.first else {
-                // 无法获取窗口信息，退回使用主屏幕可视区域
-                let screenFrame = NSScreen.main?.visibleFrame ?? .zero
-                currentScrollingOverlay?.orderOut(nil)
-                currentScrollingOverlay = ScrollingOverlayWindow(windowRect: screenFrame) { image in
-                    currentScrollingOverlay = nil
-                    onComplete(image)
-                }
-                return
-            }
-
-            var posVal: CFTypeRef?
-            var sizeVal: CFTypeRef?
-            AXUIElementCopyAttributeValue(mainWindow, kAXPositionAttribute as CFString, &posVal)
-            AXUIElementCopyAttributeValue(mainWindow, kAXSizeAttribute as CFString, &sizeVal)
-
-            guard let pos = posVal, let siz = sizeVal else { onComplete(nil); return }
-            var posPoint = CGPoint.zero
-            var sizeCGSize = CGSize.zero
-            AXValueGetValue(pos as! AXValue, .cgPoint, &posPoint)
-            AXValueGetValue(siz as! AXValue, .cgSize, &sizeCGSize)
-            let windowRect = CGRect(origin: posPoint, size: sizeCGSize)
-
-            currentScrollingOverlay?.orderOut(nil)
-            currentScrollingOverlay = ScrollingOverlayWindow(windowRect: windowRect) { image in
-                currentScrollingOverlay = nil
-                onComplete(image)
-            }
-        }
+        ScrollingCaptureManager.shared.start(onComplete: onComplete)
     }
 
     // MARK: - 多显示器支持

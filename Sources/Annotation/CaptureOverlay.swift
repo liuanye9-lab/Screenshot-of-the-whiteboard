@@ -3,7 +3,7 @@ import AppKit
 import Carbon.HIToolbox
 
 class CaptureOverlayWindow: NSWindow {
-    private let overlayView: CaptureOverlayView
+    let overlayView: CaptureOverlayView
     var onCaptureComplete: ((NSImage?) -> Void)?
 
     init(screenImage: NSImage, cgImage: CGImage, screenFrame: CGRect, callback: @escaping (NSImage?) -> Void) {

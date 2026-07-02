@@ -1,14 +1,75 @@
-// ScrollingOverlay.swift — 自动滚动长图截图
+// ScrollingOverlay.swift — 区域选择 + 自动滚动长图截图
 // 流程：
-//   1. 按 ⌘T → 屏幕顶部出现控制面板
-//   2. 点「开始」→ 自动截取第一帧，开始监听滚动事件
-//   3. 用户正常滚动目标页面（鼠标滚轮/触控板）
-//   4. 滚动停下 0.5 秒后自动截取新帧，通过像素比对找到重叠区域，去除重复内容后拼接
-//   5. 点「完成」或按 ↵ → 拼接结果直接进入标注白板
-//   6. 按 Esc 取消
+//   1. 按 ⌘T → 弹出区域选择覆层（与局部截图相同，带放大镜 + 十字准线）
+//   2. 用户框选要截图的范围 → 选区确定后关闭覆层
+//   3. 屏幕顶部出现悬浮控制条，自动截取第一帧
+//   4. 用户在选区范围内正常滚动页面
+//   5. 滚动停下 0.5 秒后自动截取新帧，像素比对去重后拼接
+//   6. 点「完成」或按 ↵ → 拼接结果直接进入标注白板
+//   7. 按 Esc 取消
 import AppKit
 import CoreGraphics
 import Carbon.HIToolbox
+
+// MARK: - 滚动截图入口
+
+class ScrollingCaptureManager {
+    static let shared = ScrollingCaptureManager()
+    private var currentOverlay: ScrollingOverlayWindow?
+
+    func start(onComplete: @escaping (NSImage?) -> Void) {
+        // 第一步：弹出区域选择覆层
+        guard let screen = NSScreen.main else { onComplete(nil); return }
+        guard let displayID = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID else { onComplete(nil); return }
+        guard let cgImage = CGDisplayCreateImage(displayID) else { onComplete(nil); return }
+
+        let screenImage = NSImage(cgImage: cgImage, size: screen.frame.size)
+        let screenFrame = screen.frame
+
+        let captureOverlay = CaptureOverlayWindow(
+            screenImage: screenImage,
+            cgImage: cgImage,
+            screenFrame: screenFrame
+        ) { [weak self] selectedImage in
+            // 区域选择完成或取消
+            // 我们不需要 selectedImage，只需要选区的 CGRect
+            // CaptureOverlayWindow 的回调返回的是 NSImage，我们需要修改获取选区的方式
+            // 这里用一个变通方法：通过 captureOverlay 的 overlayView 获取选区
+            onComplete(nil) // placeholder，实际逻辑在下面
+        }
+
+        // 重写回调：获取选区 rect 而非裁剪后的图片
+        captureOverlay.overlayView.onSelectionComplete = { [weak self] rect in
+            captureOverlay.orderOut(nil)
+
+            guard let rect = rect, rect.width > 10, rect.height > 10 else {
+                onComplete(nil)
+                return
+            }
+
+            // 选区是 view 坐标（原点在左下），需要转换为全局 NSScreen 坐标
+            let screenFrame = NSScreen.main?.frame ?? .zero
+            let globalRect = CGRect(
+                x: rect.origin.x,
+                y: rect.origin.y,
+                width: rect.width,
+                height: rect.height
+            )
+
+            // 第二步：弹出滚动控制面板
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                self?.currentOverlay?.orderOut(nil)
+                self?.currentOverlay = ScrollingOverlayWindow(
+                    windowRect: globalRect,
+                    screenFrame: screenFrame
+                ) { image in
+                    self?.currentOverlay = nil
+                    onComplete(image)
+                }
+            }
+        }
+    }
+}
 
 // MARK: - 滚动截图窗口
 
@@ -16,18 +77,18 @@ class ScrollingOverlayWindow: NSWindow {
     var onComplete: ((NSImage?) -> Void)?
     private let controlView: ScrollingControlView
 
-    init(windowRect: CGRect, callback: @escaping (NSImage?) -> Void) {
+    init(windowRect: CGRect, screenFrame: CGRect, callback: @escaping (NSImage?) -> Void) {
         self.onComplete = callback
 
-        let controlW: CGFloat = 420
-        let controlH: CGFloat = 88
-        let screenFrame = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
+        let controlW: CGFloat = 440
+        let controlH: CGFloat = 92
         let x = screenFrame.midX - controlW / 2
         let y = screenFrame.maxY - controlH - 8
 
         self.controlView = ScrollingControlView(
             frame: NSRect(x: 0, y: 0, width: controlW, height: controlH),
-            windowRect: windowRect
+            windowRect: windowRect,
+            screenFrame: screenFrame
         )
 
         super.init(
@@ -68,6 +129,7 @@ class ScrollingControlView: NSView {
     var onCancel: (() -> Void)?
 
     private let targetRect: CGRect
+    private let screenFrame: CGRect
     private var stitchedImage: CGImage?
     private var lastFrame: CGImage?
     private var captureCount = 0
@@ -98,8 +160,9 @@ class ScrollingControlView: NSView {
     private lazy var cancelButton: NSButton = makeButton(
         title: "取消 (Esc)", color: NSColor.systemGray, action: #selector(cancelCapture(_:)))
 
-    init(frame: NSRect, windowRect: CGRect) {
+    init(frame: NSRect, windowRect: CGRect, screenFrame: CGRect) {
         self.targetRect = windowRect
+        self.screenFrame = screenFrame
         super.init(frame: frame)
         setupUI()
     }
@@ -130,16 +193,16 @@ class ScrollingControlView: NSView {
         blur.autoresizingMask = [.width, .height]
         addSubview(blur, positioned: .below, relativeTo: nil)
 
-        hintLabel.frame = NSRect(x: 0, y: 66, width: bounds.width, height: 16)
+        hintLabel.frame = NSRect(x: 0, y: 68, width: bounds.width, height: 16)
         addSubview(hintLabel)
 
-        statusLabel.frame = NSRect(x: 0, y: 44, width: bounds.width, height: 20)
+        statusLabel.frame = NSRect(x: 0, y: 46, width: bounds.width, height: 20)
         addSubview(statusLabel)
 
         let btnY: CGFloat = 8
         let btnH: CGFloat = 30
         let btnW: CGFloat = 120
-        let spacing: CGFloat = 10
+        let spacing: CGFloat = 12
         let totalW = btnW * 3 + spacing * 2
         let startX = (bounds.width - totalW) / 2
 
@@ -179,17 +242,18 @@ class ScrollingControlView: NSView {
         }
     }
 
-    // MARK: - 截图核心
+    // MARK: - 截图核心：截取选区范围
 
     private func captureTargetArea() -> CGImage? {
-        guard let screen = NSScreen.main else { return nil }
-        guard let displayID = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID else { return nil }
+        guard let displayID = NSScreen.main?.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID else { return nil }
         guard let fullImage = CGDisplayCreateImage(displayID) else { return nil }
 
-        let scale = CGFloat(fullImage.width) / screen.frame.width
+        let scale = CGFloat(fullImage.width) / screenFrame.width
+
+        // targetRect 是 NSScreen 坐标（原点在左下），CGImage 坐标原点在左上
         let cropRect = CGRect(
             x: targetRect.origin.x * scale,
-            y: (screen.frame.height - targetRect.origin.y - targetRect.height) * scale,
+            y: (screenFrame.height - targetRect.origin.y - targetRect.height) * scale,
             width: targetRect.width * scale,
             height: targetRect.height * scale
         )
@@ -229,7 +293,6 @@ class ScrollingControlView: NSView {
             eventsOfInterest: CGEventMask(eventMask),
             callback: { _, type, event, refcon in
                 guard type == .scrollWheel else { return Unmanaged.passUnretained(event) }
-                // 通知 ScrollingControlView
                 if let refcon = refcon {
                     let view = Unmanaged<ScrollingControlView>.fromOpaque(refcon).takeUnretainedValue()
                     view.onScrollDetected()
@@ -238,20 +301,18 @@ class ScrollingControlView: NSView {
             },
             userInfo: Unmanaged.passUnretained(self).toOpaque()
         ) else {
-            // 权限不足，降级为定时轮询模式
-            statusLabel.stringValue = "无法监听滚动事件，请用 Space 手动触发截取"
+            // 权限不足，降级为手动模式
+            statusLabel.stringValue = "无法监听滚动，请用 Space 手动截取每帧"
             return
         }
 
         self.eventTap = tap
-
         let runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
         CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
     }
 
     private func onScrollDetected() {
-        // 重置定时器：滚动停下 0.5 秒后自动截取
         scrollSettleTimer?.cancel()
         let timer = DispatchSource.makeTimerSource(queue: scrollMonitorQueue)
         timer.schedule(deadline: .now() + 0.5)
@@ -273,11 +334,10 @@ class ScrollingControlView: NSView {
             return
         }
 
-        // 检测重叠区域，找到新帧相对于上一帧的垂直偏移
+        // 检测重叠区域
         let overlap = findOverlap(lastImage: lastFrame, newImage: newFrame)
 
         if overlap > 0 && overlap < newFrame.height {
-            // 只取新帧中不重叠的部分
             let newPartHeight = newFrame.height - overlap
             if newPartHeight > 5 {
                 let cropRect = CGRect(x: 0, y: overlap, width: newFrame.width, height: newPartHeight)
@@ -285,12 +345,9 @@ class ScrollingControlView: NSView {
                     appendFrame(newPart)
                 }
             }
-            // 否则内容没变化，跳过
         } else if overlap == 0 {
-            // 没有重叠，直接拼接整张
             appendFrame(newFrame)
         }
-        // overlap == -1 表示无法比对，跳过
     }
 
     private func appendFrame(_ frame: CGImage) {
@@ -299,7 +356,7 @@ class ScrollingControlView: NSView {
         } else {
             stitchedImage = frame
         }
-        lastFrame = captureTargetArea() // 保存完整帧用于下次比对
+        lastFrame = captureTargetArea()
         captureCount += 1
         hintLabel.stringValue = "已捕获 \(captureCount) 帧"
         flashFeedback()
@@ -314,8 +371,6 @@ class ScrollingControlView: NSView {
 
     // MARK: - 像素重叠检测
 
-    /// 比对上一帧底部和新帧顶部，找到最佳匹配的垂直偏移量
-    /// 返回值：>0 表示重叠像素数，0 表示无重叠，-1 表示无法比对
     private func findOverlap(lastImage: CGImage, newImage: CGImage) -> Int {
         let lastW = lastImage.width
         let lastH = lastImage.height
@@ -323,18 +378,14 @@ class ScrollingControlView: NSView {
         let newH = newImage.height
 
         guard lastW > 0 && lastH > 0 && newW > 0 && newH > 0 else { return -1 }
-
-        // 宽度不同说明内容完全不同
         if lastW != newW { return 0 }
 
-        // 采样：取上一帧底部的若干行，在新帧中搜索匹配位置
         let sampleRowCount = min(20, lastH / 4)
-        let sampleStep = max(1, lastW / 100) // 采样列，加速比对
+        let sampleStep = max(1, lastW / 100)
 
         guard let lastData = getPixelData(lastImage),
               let newData = getPixelData(newImage) else { return -1 }
 
-        // 取上一帧最后 sampleRowCount 行的指纹
         var lastFingerprints: [[UInt32]] = []
         for row in 0..<sampleRowCount {
             let y = lastH - 1 - row
@@ -348,7 +399,6 @@ class ScrollingControlView: NSView {
             lastFingerprints.append(rowFP)
         }
 
-        // 在新帧中从上往下搜索匹配
         let maxSearch = min(newH, lastH)
         let minMatchRows = 3
 
@@ -373,7 +423,6 @@ class ScrollingControlView: NSView {
             }
 
             if matchedRows >= minMatchRows {
-                // 找到匹配起始位置 startY，重叠高度 = min(lastH, newH - startY)
                 let overlap = newH - startY
                 return max(0, overlap)
             }
@@ -414,9 +463,7 @@ class ScrollingControlView: NSView {
             bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
         ) else { return top }
 
-        // top 画在上半部分（CG 坐标系 Y 朝上）
         ctx.draw(top, in: CGRect(x: 0, y: bottom.height, width: top.width, height: top.height))
-        // bottom 画在下半部分
         ctx.draw(bottom, in: CGRect(x: 0, y: 0, width: bottom.width, height: bottom.height))
 
         return ctx.makeImage()
