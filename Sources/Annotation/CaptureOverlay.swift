@@ -71,12 +71,22 @@ class CaptureOverlayView: NSView {
     }
 
     override func draw(_ dirtyRect: NSRect) {
+        // 1. 先绘制原始屏幕截图作为背景，保持原尺寸
+        screenImage.draw(in: bounds, from: NSRect(origin: .zero, size: screenImage.size), operation: .copy, fraction: 1.0)
+
+        // 2. 全局半透明遮罩
         NSColor.black.withAlphaComponent(0.25).setFill()
         bounds.fill()
 
         if let rect = currentRect, rect.width > 2, rect.height > 2 {
             NSGraphicsContext.saveGraphicsState()
-            screenImage.draw(in: rect, from: bounds, operation: .copy, fraction: 1.0)
+
+            // 3. 在选区中裁剪掉遮罩，露出下方原图
+            let clip = NSBezierPath(rect: rect)
+            clip.addClip()
+            screenImage.draw(in: bounds, from: NSRect(origin: .zero, size: screenImage.size), operation: .copy, fraction: 1.0)
+
+            NSGraphicsContext.restoreGraphicsState()
 
             let border = NSBezierPath(rect: rect)
             LeafStyle.primaryBlue.setStroke()
@@ -94,7 +104,6 @@ class CaptureOverlayView: NSView {
                 let handle = NSRect(x: corner.x - handleSize/2, y: corner.y - handleSize/2, width: handleSize, height: handleSize)
                 NSBezierPath(roundedRect: handle, xRadius: 2, yRadius: 2).fill()
             }
-            NSGraphicsContext.restoreGraphicsState()
 
             drawSizeLabel(rect)
         }

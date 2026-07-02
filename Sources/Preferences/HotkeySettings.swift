@@ -7,6 +7,8 @@ struct HotkeySettings: Codable {
     var regionModifiers: UInt64
     var fullScreenKey: UInt32
     var fullScreenModifiers: UInt64
+    var windowKey: UInt32
+    var windowModifiers: UInt64
     var scrollKey: UInt32
     var scrollModifiers: UInt64
     var annotateKey: UInt32
@@ -16,6 +18,7 @@ struct HotkeySettings: Codable {
 
     var regionCGModifiers: UInt64 { regionModifiers }
     var fullScreenCGModifiers: UInt64 { fullScreenModifiers }
+    var windowCGModifiers: UInt64 { windowModifiers }
     var scrollCGModifiers: UInt64 { scrollModifiers }
     var annotateCGModifiers: UInt64 { annotateModifiers }
     var quitCGModifiers: UInt64 { quitModifiers }
@@ -26,16 +29,18 @@ struct HotkeySettings: Codable {
     static let cgControl: UInt64  = 0x00040000
 
     static let defaults = HotkeySettings(
-        regionKey: UInt32(kVK_ANSI_E),
-        regionModifiers: cgOption,
+        regionKey: UInt32(kVK_ANSI_W),
+        regionModifiers: cgCommand,
         fullScreenKey: UInt32(kVK_ANSI_Q),
-        fullScreenModifiers: cgOption,
-        scrollKey: UInt32(kVK_ANSI_W),
-        scrollModifiers: cgOption,
+        fullScreenModifiers: cgCommand,
+        windowKey: UInt32(kVK_ANSI_E),
+        windowModifiers: cgCommand,
+        scrollKey: UInt32(kVK_ANSI_T),
+        scrollModifiers: cgCommand,
         annotateKey: UInt32(kVK_ANSI_A),
-        annotateModifiers: cgOption,
+        annotateModifiers: cgCommand,
         quitKey: UInt32(kVK_ANSI_Q),
-        quitModifiers: cgCommand
+        quitModifiers: cgCommand + cgShift
     )
 
     private static var settingsURL: URL {

@@ -57,7 +57,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                       action: #selector(captureRegion), keyEquivalent: "")
         menu.addItem(withTitle: "整页截图  \(HotkeySettings.describe(key: s.fullScreenKey, modifiers: s.fullScreenModifiers))",
                       action: #selector(captureFullScreen), keyEquivalent: "")
-        menu.addItem(withTitle: "窗口截图",
+        menu.addItem(withTitle: "窗口截图  \(HotkeySettings.describe(key: s.windowKey, modifiers: s.windowModifiers))",
                       action: #selector(captureWindow), keyEquivalent: "")
 
         // 选择显示器
@@ -137,6 +137,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let manager = HotkeyManager.shared
         manager.onRegionCapture = { [weak self] in self?.captureRegion() }
         manager.onFullScreenCapture = { [weak self] in self?.captureFullScreen() }
+        manager.onWindowCapture = { [weak self] in self?.captureWindow() }
         manager.onScrollCapture = { [weak self] in self?.captureScrolling() }
         manager.onAnnotateLastCapture = { [weak self] in self?.annotateLastCapture() }
         manager.onQuit = { [weak self] in self?.quitApp() }
@@ -347,6 +348,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         快捷键：
           局部截图    \(HotkeySettings.describe(key: s.regionKey, modifiers: s.regionModifiers))
           全屏截图    \(HotkeySettings.describe(key: s.fullScreenKey, modifiers: s.fullScreenModifiers))
+          窗口截图    \(HotkeySettings.describe(key: s.windowKey, modifiers: s.windowModifiers))
           长图截图    \(HotkeySettings.describe(key: s.scrollKey, modifiers: s.scrollModifiers))
           标注上次    \(HotkeySettings.describe(key: s.annotateKey, modifiers: s.annotateModifiers))
           退出        \(HotkeySettings.describe(key: s.quitKey, modifiers: s.quitModifiers))
@@ -359,7 +361,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
           ⌘⇧C 复制图片 + JSON 元数据    ⌘S 保存 PNG + JSON
 
         额外功能：
-          窗口截图 · 多显示器选屏 · 置顶贴图 · OCR 文字识别 · 历史管理器 · 快捷键自定义
+          多显示器选屏 · 置顶贴图 · OCR 文字识别 · 历史管理器 · 快捷键自定义
         """
         alert.alertStyle = .informational
         alert.addButton(withTitle: "好")

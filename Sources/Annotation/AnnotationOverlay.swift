@@ -58,7 +58,7 @@ class AnnotationOverlayWindow: NSWindow {
         case .undo: annotationView.undo()
         case .redo: annotationView.redo()
         case .done: completeAnnotation()
-        case .cancel: close()
+        case .cancel: orderOut(nil)
         default: annotationView.currentTool = tool
         }
         floatingToolbar.selectTool(annotationView.currentTool)

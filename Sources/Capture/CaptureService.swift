@@ -7,6 +7,8 @@ import Carbon
 
 class CaptureService {
 
+    private static var currentScrollingOverlay: ScrollingOverlayWindow?
+
     /// 局部截图（自定义覆层：放大镜 + 十字准线）
     static func captureRegion() async throws -> NSImage {
         let mouseLoc = NSEvent.mouseLocation
@@ -74,7 +76,7 @@ class CaptureService {
         throw CaptureError.noWindowFound
     }
 
-    /// 滚动长图截图：捕获前台窗口可视区域，滚动后再次捕获，自动拼接
+    /// 滚动长图截图：捕获前台窗口可视区域，进入手动滚动覆层由用户选取长图范围
     static func captureScrolling(onComplete: @escaping (NSImage?) -> Void) {
         Task { @MainActor in
             guard let frontApp = NSWorkspace.shared.frontmostApplication else {
@@ -90,9 +92,6 @@ class CaptureService {
                 onComplete(nil); return
             }
 
-            var windowID: CGWindowID = 0
-            let _ = _AXUIElementGetWindow(mainWindow, &windowID)
-
             var posVal: CFTypeRef?
             var sizeVal: CFTypeRef?
             AXUIElementCopyAttributeValue(mainWindow, kAXPositionAttribute as CFString, &posVal)
@@ -105,44 +104,16 @@ class CaptureService {
             AXValueGetValue(siz as! AXValue, .cgSize, &sizeCGSize)
             let windowRect = CGRect(origin: posPoint, size: sizeCGSize)
 
-            var scrollArea: AXUIElement?
-            findScrollArea(mainWindow, result: &scrollArea)
-
-            var captures: [(image: CGImage, offsetY: CGFloat)] = []
-            let maxIterations = 30
-            var lastScrollValue: CGFloat = 0
-
-            for i in 0..<maxIterations {
-                guard let cgImage = CGDisplayCreateImage(CGMainDisplayID()) else { break }
-                let cropped = cropCGImage(cgImage, to: windowRect)
-                captures.append((cropped, lastScrollValue))
-
-                guard let area = scrollArea else { break }
-                var currentScroll: CFTypeRef?
-                _ = AXUIElementCopyAttributeValue(area, kAXVisibleChildrenAttribute as CFString, &currentScroll)
-
-                let scrollAmount: CGFloat = windowRect.height * 0.85
-                if let scrollEvent = CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 1, wheel1: -Int32(scrollAmount), wheel2: 0, wheel3: 0) {
-                    scrollEvent.location = CGPoint(x: windowRect.midX, y: windowRect.midY)
-                    scrollEvent.post(tap: .cgSessionEventTap)
-                }
-                lastScrollValue += scrollAmount
-
-                try? await Task.sleep(nanoseconds: 400_000_000)
-
-                if i >= 4 {
-                    NSSound.beep()
-                    break
-                }
+            guard let cgImage = CGDisplayCreateImage(CGMainDisplayID()) else {
+                onComplete(nil); return
             }
+            let initial = cropCGImage(cgImage, to: windowRect)
+            let initialImage = NSImage(cgImage: initial, size: windowRect.size)
 
-            if captures.isEmpty {
-                onComplete(nil)
-            } else if captures.count == 1 {
-                onComplete(NSImage(cgImage: captures[0].image, size: NSSize(width: captures[0].image.width, height: captures[0].image.height)))
-            } else {
-                let stitched = stitchImages(captures.map { $0.image })
-                onComplete(stitched)
+            currentScrollingOverlay?.orderOut(nil)
+            currentScrollingOverlay = ScrollingOverlayWindow(initialImage: initialImage, windowRect: windowRect) { image in
+                currentScrollingOverlay = nil
+                onComplete(image)
             }
         }
     }
