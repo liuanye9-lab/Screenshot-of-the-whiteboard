@@ -1,11 +1,11 @@
-// ScrollingOverlay.swift — 手动滚动长图控制面板
+// ScrollingOverlay.swift — 自动滚动长图截图
 // 流程：
-//   1. 按 ⌘T 触发长图截图
-//   2. 屏幕顶部出现悬浮控制条（不遮挡目标页面）
-//   3. 用户在目标页面正常滚动（鼠标滚轮/触控板）
-//   4. 每滚动到新内容，按 Space 或点「截取当前段」捕获当前屏幕
-//   5. 按 Enter 或点「完成」→ 拼接结果直接进入标注白板
-//   6. 按 Esc 或点「取消」放弃
+//   1. 按 ⌘T → 屏幕顶部出现控制面板
+//   2. 点「开始」→ 自动截取第一帧，开始监听滚动事件
+//   3. 用户正常滚动目标页面（鼠标滚轮/触控板）
+//   4. 滚动停下 0.5 秒后自动截取新帧，通过像素比对找到重叠区域，去除重复内容后拼接
+//   5. 点「完成」或按 ↵ → 拼接结果直接进入标注白板
+//   6. 按 Esc 取消
 import AppKit
 import CoreGraphics
 import Carbon.HIToolbox
@@ -19,8 +19,8 @@ class ScrollingOverlayWindow: NSWindow {
     init(windowRect: CGRect, callback: @escaping (NSImage?) -> Void) {
         self.onComplete = callback
 
-        let controlW: CGFloat = 400
-        let controlH: CGFloat = 80
+        let controlW: CGFloat = 420
+        let controlH: CGFloat = 88
         let screenFrame = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
         let x = screenFrame.midX - controlW / 2
         let y = screenFrame.maxY - controlH - 8
@@ -68,41 +68,35 @@ class ScrollingControlView: NSView {
     var onCancel: (() -> Void)?
 
     private let targetRect: CGRect
-    private var stitchedImage: NSImage?
+    private var stitchedImage: CGImage?
+    private var lastFrame: CGImage?
     private var captureCount = 0
+    private var isCapturing = false
+    private var eventTap: CFMachPort?
+    private var scrollSettleTimer: DispatchSourceTimer?
+    private var scrollMonitorQueue = DispatchQueue(label: "snapleaf.scroll-monitor")
 
-    private lazy var captureButton: NSButton = makeButton(
-        title: "截取当前段",
-        subtitle: "Space",
-        color: LeafStyle.primaryBlue,
-        action: #selector(captureSection(_:))
-    )
-    private lazy var finishButton: NSButton = makeButton(
-        title: "完成",
-        subtitle: "↵",
-        color: LeafStyle.systemGreen,
-        action: #selector(finishCapture(_:))
-    )
-    private lazy var cancelButton: NSButton = makeButton(
-        title: "取消",
-        subtitle: "Esc",
-        color: NSColor.systemGray,
-        action: #selector(cancelCapture(_:))
-    )
-    private lazy var counterLabel: NSTextField = {
-        let label = NSTextField(labelWithString: "已截取 0 段")
-        label.font = NSFont.systemFont(ofSize: 13, weight: .semibold)
-        label.textColor = .white
-        label.alignment = .center
-        return label
+    // UI
+    private lazy var statusLabel: NSTextField = {
+        let l = NSTextField(labelWithString: "准备就绪 — 点击「开始」后滚动目标页面")
+        l.font = NSFont.systemFont(ofSize: 13, weight: .semibold)
+        l.textColor = .white
+        l.alignment = .center
+        return l
     }()
     private lazy var hintLabel: NSTextField = {
-        let label = NSTextField(labelWithString: "滚动目标页面后点「截取当前段」")
-        label.font = NSFont.systemFont(ofSize: 10, weight: .regular)
-        label.textColor = NSColor.white.withAlphaComponent(0.6)
-        label.alignment = .center
-        return label
+        let l = NSTextField(labelWithString: "自动捕获滚动内容，智能去重拼接")
+        l.font = NSFont.systemFont(ofSize: 10, weight: .regular)
+        l.textColor = NSColor.white.withAlphaComponent(0.6)
+        l.alignment = .center
+        return l
     }()
+    private lazy var startButton: NSButton = makeButton(
+        title: "开始", color: LeafStyle.primaryBlue, action: #selector(startCapture(_:)))
+    private lazy var finishButton: NSButton = makeButton(
+        title: "完成 (↵)", color: LeafStyle.systemGreen, action: #selector(finishCapture(_:)))
+    private lazy var cancelButton: NSButton = makeButton(
+        title: "取消 (Esc)", color: NSColor.systemGray, action: #selector(cancelCapture(_:)))
 
     init(frame: NSRect, windowRect: CGRect) {
         self.targetRect = windowRect
@@ -119,6 +113,8 @@ class ScrollingControlView: NSView {
         window?.makeFirstResponder(self)
     }
 
+    // MARK: - UI
+
     private func setupUI() {
         wantsLayer = true
         layer?.cornerRadius = 16
@@ -134,32 +130,34 @@ class ScrollingControlView: NSView {
         blur.autoresizingMask = [.width, .height]
         addSubview(blur, positioned: .below, relativeTo: nil)
 
-        hintLabel.frame = NSRect(x: 0, y: 58, width: bounds.width, height: 16)
+        hintLabel.frame = NSRect(x: 0, y: 66, width: bounds.width, height: 16)
         addSubview(hintLabel)
 
-        counterLabel.frame = NSRect(x: 0, y: 38, width: bounds.width, height: 18)
-        addSubview(counterLabel)
+        statusLabel.frame = NSRect(x: 0, y: 44, width: bounds.width, height: 20)
+        addSubview(statusLabel)
 
-        let btnY: CGFloat = 6
-        let btnH: CGFloat = 28
-        let btnW: CGFloat = 110
-        let spacing: CGFloat = 8
+        let btnY: CGFloat = 8
+        let btnH: CGFloat = 30
+        let btnW: CGFloat = 120
+        let spacing: CGFloat = 10
         let totalW = btnW * 3 + spacing * 2
         let startX = (bounds.width - totalW) / 2
 
-        captureButton.frame = NSRect(x: startX, y: btnY, width: btnW, height: btnH)
+        startButton.frame = NSRect(x: startX, y: btnY, width: btnW, height: btnH)
         finishButton.frame = NSRect(x: startX + btnW + spacing, y: btnY, width: btnW, height: btnH)
         cancelButton.frame = NSRect(x: startX + (btnW + spacing) * 2, y: btnY, width: btnW, height: btnH)
 
-        addSubview(captureButton)
+        addSubview(startButton)
         addSubview(finishButton)
         addSubview(cancelButton)
+
+        finishButton.isEnabled = false
     }
 
-    private func makeButton(title: String, subtitle: String, color: NSColor, action: Selector) -> NSButton {
+    private func makeButton(title: String, color: NSColor, action: Selector) -> NSButton {
         let btn = NSButton(frame: .zero)
         btn.bezelStyle = .rounded
-        btn.title = "\(title) (\(subtitle))"
+        btn.title = title
         btn.font = NSFont.systemFont(ofSize: 12, weight: .medium)
         btn.wantsLayer = true
         btn.layer?.backgroundColor = color.cgColor
@@ -172,10 +170,8 @@ class ScrollingControlView: NSView {
 
     override func keyDown(with event: NSEvent) {
         switch UInt32(event.keyCode) {
-        case UInt32(kVK_Space):
-            captureSection(nil)
         case UInt32(kVK_Return), UInt32(kVK_ANSI_KeypadEnter):
-            finishCapture(nil)
+            if isCapturing { finishCapture(nil) }
         case UInt32(kVK_Escape):
             cancelCapture(nil)
         default:
@@ -183,98 +179,275 @@ class ScrollingControlView: NSView {
         }
     }
 
-    // MARK: - 截取当前段
+    // MARK: - 截图核心
 
-    @objc private func captureSection(_ sender: Any?) {
-        // 截取整个主屏幕
-        guard let screen = NSScreen.main else { return }
-        guard let displayID = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID else { return }
-        guard let fullImage = CGDisplayCreateImage(displayID) else { return }
+    private func captureTargetArea() -> CGImage? {
+        guard let screen = NSScreen.main else { return nil }
+        guard let displayID = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID else { return nil }
+        guard let fullImage = CGDisplayCreateImage(displayID) else { return nil }
 
-        // 计算物理像素与逻辑像素的比例
         let scale = CGFloat(fullImage.width) / screen.frame.width
-
-        // targetRect 是全局坐标（NSScreen 坐标系，原点在左下）
-        // CGImage 坐标原点在左上，需要 Y 翻转
         let cropRect = CGRect(
             x: targetRect.origin.x * scale,
             y: (screen.frame.height - targetRect.origin.y - targetRect.height) * scale,
             width: targetRect.width * scale,
             height: targetRect.height * scale
         )
+        return fullImage.cropping(to: cropRect) ?? fullImage
+    }
 
-        guard let cropped = fullImage.cropping(to: cropRect) else {
-            // 如果裁剪失败，用整张图
-            let fullNSImage = NSImage(cgImage: fullImage, size: screen.frame.size)
-            appendSection(fullNSImage, cgImage: fullImage)
+    // MARK: - 开始自动捕获
+
+    @objc private func startCapture(_ sender: Any?) {
+        guard !isCapturing else { return }
+
+        // 截取第一帧
+        guard let firstFrame = captureTargetArea() else { return }
+        stitchedImage = firstFrame
+        lastFrame = firstFrame
+        captureCount = 1
+        isCapturing = true
+
+        statusLabel.stringValue = "正在监听滚动… 滚动目标页面即可自动截取"
+        hintLabel.stringValue = "已捕获 \(captureCount) 帧"
+        startButton.isEnabled = false
+        finishButton.isEnabled = true
+
+        installScrollMonitor()
+        flashFeedback()
+    }
+
+    // MARK: - 滚动事件监听
+
+    private func installScrollMonitor() {
+        let eventMask = (1 << CGEventType.scrollWheel.rawValue)
+
+        guard let tap = CGEvent.tapCreate(
+            tap: .cgSessionEventTap,
+            place: .headInsertEventTap,
+            options: .listenOnly,
+            eventsOfInterest: CGEventMask(eventMask),
+            callback: { _, type, event, refcon in
+                guard type == .scrollWheel else { return Unmanaged.passUnretained(event) }
+                // 通知 ScrollingControlView
+                if let refcon = refcon {
+                    let view = Unmanaged<ScrollingControlView>.fromOpaque(refcon).takeUnretainedValue()
+                    view.onScrollDetected()
+                }
+                return Unmanaged.passUnretained(event)
+            },
+            userInfo: Unmanaged.passUnretained(self).toOpaque()
+        ) else {
+            // 权限不足，降级为定时轮询模式
+            statusLabel.stringValue = "无法监听滚动事件，请用 Space 手动触发截取"
             return
         }
 
-        let sectionImage = NSImage(cgImage: cropped, size: targetRect.size)
-        appendSection(sectionImage, cgImage: cropped)
+        self.eventTap = tap
+
+        let runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
+        CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, .commonModes)
+        CGEvent.tapEnable(tap: tap, enable: true)
     }
 
-    private func appendSection(_ image: NSImage, cgImage: CGImage) {
-        if let existing = stitchedImage {
-            stitchedImage = stitchVertical(existing, image)
-        } else {
-            stitchedImage = image
+    private func onScrollDetected() {
+        // 重置定时器：滚动停下 0.5 秒后自动截取
+        scrollSettleTimer?.cancel()
+        let timer = DispatchSource.makeTimerSource(queue: scrollMonitorQueue)
+        timer.schedule(deadline: .now() + 0.5)
+        timer.setEventHandler { [weak self] in
+            DispatchQueue.main.async {
+                self?.autoCaptureFrame()
+            }
         }
+        timer.resume()
+        scrollSettleTimer = timer
+    }
+
+    private func autoCaptureFrame() {
+        guard isCapturing else { return }
+
+        guard let newFrame = captureTargetArea() else { return }
+        guard let lastFrame = lastFrame else {
+            appendFrame(newFrame)
+            return
+        }
+
+        // 检测重叠区域，找到新帧相对于上一帧的垂直偏移
+        let overlap = findOverlap(lastImage: lastFrame, newImage: newFrame)
+
+        if overlap > 0 && overlap < newFrame.height {
+            // 只取新帧中不重叠的部分
+            let newPartHeight = newFrame.height - overlap
+            if newPartHeight > 5 {
+                let cropRect = CGRect(x: 0, y: overlap, width: newFrame.width, height: newPartHeight)
+                if let newPart = newFrame.cropping(to: cropRect) {
+                    appendFrame(newPart)
+                }
+            }
+            // 否则内容没变化，跳过
+        } else if overlap == 0 {
+            // 没有重叠，直接拼接整张
+            appendFrame(newFrame)
+        }
+        // overlap == -1 表示无法比对，跳过
+    }
+
+    private func appendFrame(_ frame: CGImage) {
+        if let existing = stitchedImage {
+            stitchedImage = stitchCGImagesVertical(existing, frame)
+        } else {
+            stitchedImage = frame
+        }
+        lastFrame = captureTargetArea() // 保存完整帧用于下次比对
         captureCount += 1
-        counterLabel.stringValue = "已截取 \(captureCount) 段"
+        hintLabel.stringValue = "已捕获 \(captureCount) 帧"
         flashFeedback()
     }
 
     private func flashFeedback() {
-        layer?.backgroundColor = NSColor.systemGreen.withAlphaComponent(0.5).cgColor
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+        layer?.backgroundColor = NSColor.systemGreen.withAlphaComponent(0.4).cgColor
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
             self?.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.80).cgColor
         }
+    }
+
+    // MARK: - 像素重叠检测
+
+    /// 比对上一帧底部和新帧顶部，找到最佳匹配的垂直偏移量
+    /// 返回值：>0 表示重叠像素数，0 表示无重叠，-1 表示无法比对
+    private func findOverlap(lastImage: CGImage, newImage: CGImage) -> Int {
+        let lastW = lastImage.width
+        let lastH = lastImage.height
+        let newW = newImage.width
+        let newH = newImage.height
+
+        guard lastW > 0 && lastH > 0 && newW > 0 && newH > 0 else { return -1 }
+
+        // 宽度不同说明内容完全不同
+        if lastW != newW { return 0 }
+
+        // 采样：取上一帧底部的若干行，在新帧中搜索匹配位置
+        let sampleRowCount = min(20, lastH / 4)
+        let sampleStep = max(1, lastW / 100) // 采样列，加速比对
+
+        guard let lastData = getPixelData(lastImage),
+              let newData = getPixelData(newImage) else { return -1 }
+
+        // 取上一帧最后 sampleRowCount 行的指纹
+        var lastFingerprints: [[UInt32]] = []
+        for row in 0..<sampleRowCount {
+            let y = lastH - 1 - row
+            var rowFP: [UInt32] = []
+            for x in stride(from: 0, to: lastW, by: sampleStep) {
+                let idx = (y * lastW + x)
+                if idx < lastData.count {
+                    rowFP.append(lastData[idx])
+                }
+            }
+            lastFingerprints.append(rowFP)
+        }
+
+        // 在新帧中从上往下搜索匹配
+        let maxSearch = min(newH, lastH)
+        let minMatchRows = 3
+
+        for startY in 0..<maxSearch {
+            var matchedRows = 0
+            for row in 0..<sampleRowCount {
+                let newY = startY + row
+                if newY >= newH { break }
+
+                var match = true
+                var colIdx = 0
+                for x in stride(from: 0, to: newW, by: sampleStep) {
+                    let newIdx = (newY * newW + x)
+                    if newIdx >= newData.count || colIdx >= lastFingerprints[row].count { break }
+                    if newData[newIdx] != lastFingerprints[row][colIdx] {
+                        match = false
+                        break
+                    }
+                    colIdx += 1
+                }
+                if match { matchedRows += 1 }
+            }
+
+            if matchedRows >= minMatchRows {
+                // 找到匹配起始位置 startY，重叠高度 = min(lastH, newH - startY)
+                let overlap = newH - startY
+                return max(0, overlap)
+            }
+        }
+
+        return 0
+    }
+
+    private func getPixelData(_ image: CGImage) -> [UInt32]? {
+        let w = image.width
+        let h = image.height
+        let bytesPerRow = w * 4
+        var pixelData = [UInt32](repeating: 0, count: w * h)
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        guard let context = CGContext(
+            data: &pixelData,
+            width: w, height: h,
+            bitsPerComponent: 8,
+            bytesPerRow: bytesPerRow,
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else { return nil }
+        context.draw(image, in: CGRect(x: 0, y: 0, width: w, height: h))
+        return pixelData
+    }
+
+    // MARK: - CGImage 垂直拼接
+
+    private func stitchCGImagesVertical(_ top: CGImage, _ bottom: CGImage) -> CGImage? {
+        let width = max(top.width, bottom.width)
+        let totalHeight = top.height + bottom.height
+
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        guard let ctx = CGContext(
+            data: nil, width: width, height: totalHeight,
+            bitsPerComponent: 8, bytesPerRow: width * 4,
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else { return top }
+
+        // top 画在上半部分（CG 坐标系 Y 朝上）
+        ctx.draw(top, in: CGRect(x: 0, y: bottom.height, width: top.width, height: top.height))
+        // bottom 画在下半部分
+        ctx.draw(bottom, in: CGRect(x: 0, y: 0, width: bottom.width, height: bottom.height))
+
+        return ctx.makeImage()
     }
 
     // MARK: - 完成 / 取消
 
     @objc private func finishCapture(_ sender: Any?) {
+        stopScrollMonitor()
+        isCapturing = false
+
         guard let result = stitchedImage else {
-            // 没截取任何内容，取消
             onCancel?()
             return
         }
-        onFinish?(result)
+        let nsImage = NSImage(cgImage: result, size: NSSize(width: result.width, height: result.height))
+        onFinish?(nsImage)
     }
 
     @objc private func cancelCapture(_ sender: Any?) {
+        stopScrollMonitor()
+        isCapturing = false
         onCancel?()
     }
 
-    // MARK: - 垂直拼接
-
-    private func stitchVertical(_ top: NSImage, _ bottom: NSImage) -> NSImage {
-        guard let topCG = top.cgImage(forProposedRect: nil, context: nil, hints: nil),
-              let bottomCG = bottom.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
-            return top
+    private func stopScrollMonitor() {
+        scrollSettleTimer?.cancel()
+        scrollSettleTimer = nil
+        if let tap = eventTap {
+            CGEvent.tapEnable(tap: tap, enable: false)
+            eventTap = nil
         }
-
-        let width = max(topCG.width, bottomCG.width)
-        let totalHeight = topCG.height + bottomCG.height
-
-        let colorSpace = CGColorSpaceCreateDeviceRGB()
-        guard let ctx = CGContext(
-            data: nil,
-            width: width,
-            height: totalHeight,
-            bitsPerComponent: 8,
-            bytesPerRow: width * 4,
-            space: colorSpace,
-            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-        ) else { return top }
-
-        // top 画在上半部分
-        ctx.draw(topCG, in: CGRect(x: 0, y: bottomCG.height, width: topCG.width, height: topCG.height))
-        // bottom 画在下半部分
-        ctx.draw(bottomCG, in: CGRect(x: 0, y: 0, width: bottomCG.width, height: bottomCG.height))
-
-        guard let result = ctx.makeImage() else { return top }
-        return NSImage(cgImage: result, size: NSSize(width: width, height: totalHeight))
     }
 }
